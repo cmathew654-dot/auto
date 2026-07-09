@@ -1,0 +1,19 @@
+{
+  "name": "holdings-parser-local",
+  "private": true,
+  "scripts": {
+    "test": "tsc -p tsconfig.test.json && node --test holdings-csv-parser.test.cjs review-export-surface.test.cjs paste-conductor.test.cjs emoney-browser-helper.test.cjs",
+    "typecheck": "tsc --noEmit --lib es2019,dom holdings-schema.ts holdings-csv-parser.ts paste-conductor.ts ledger-styles.ts review-export-surface.ts emoney-browser-helper.ts main.ts",
+    "build:demo": "node scripts/build-demo.mjs",
+    "build:portable": "node scripts/build-portable.mjs",
+    "test:portable": "node scripts/test-portable.mjs",
+    "start:demo": "npm run build:demo && node scripts/serve-demo.mjs",
+    "desktop:dev": "npm run build:demo && tauri dev",
+    "desktop:build": "npm run build:demo && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
+    "esbuild": "^0.27.7",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,27 @@
+node_modules/
+.test-dist/
+dist/
+demo-dist/
+demo-dist-portable/
+*.log
+
+# Tauri desktop shell build output
+src-tauri/target/
+src-tauri/gen/
+
+# Never publish the full project archive
+*.zip
+
+# Local secrets
+.env
+.env.*
+
+# Real client/holdings data must never be committed; only sample-data/ is tracked
+*.xlsx
+/data/
+/local-data/
+*.local.csv
+
+# Internal diagnostic/dev-only scripts not meant for the public build
+scripts/emoney-live-diagnostic*
+scripts/test-emoney-fill.mjs

@@ -1,0 +1,7 @@
+Account Description,Account Number,Owner,Last Updated,Symbol,Description,Quantity,Price,Cost Basis,Value,Asset Class
+Sample Household - Taxable Brokerage,800011122,Sample Household,06/30/2026,VTI,VANGUARD TOTAL STOCK MARKET ETF,120,$255.30,$22000.00,$30636.00,US Large Cap Blend
+Sample Household - Taxable Brokerage,800011122,Sample Household,06/30/2026,AAPL,APPLE INC,40,$195.10,$4200.00,$7804.00,US Large Cap Growth
+Sample Household - Taxable Brokerage,800011122,Sample Household,06/30/2026,$CASH$,CASH,,$1.00,,$5250.00,Cash
+Sample Household - Roth IRA,800022233,Sample Household,06/30/2026,VXUS,VANGUARD TOTAL INTERNATIONAL STOCK ETF,80,$62.45,$4000.00,$4996.00,International Equity
+Sample Household - Roth IRA,800022233,Sample Household,06/30/2026,BND,VANGUARD TOTAL BOND MARKET ETF,150,$72.10,$11000.00,$10815.00,US Fixed Income
+Sample Household - Roth IRA,800022233,Sample Household,06/30/2026,XYZPQ,PRIVATE PLACEMENT HOLDING,25,$0.00,$1200.00,$1200.00,Alternative

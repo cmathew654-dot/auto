@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": false,
+    "esModuleInterop": true,
+    "outDir": ".test-dist",
+    "skipLibCheck": true,
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
+    "ignoreDeprecations": "5.0"
+  },
+  "include": [
+    "holdings-schema.ts",
+    "holdings-csv-parser.ts",
+    "review-export-surface.ts",
+    "paste-conductor.ts",
+    "emoney-browser-helper.ts"
+  ]
+}
