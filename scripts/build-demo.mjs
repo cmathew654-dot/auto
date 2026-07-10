@@ -5,8 +5,13 @@ import { join } from 'node:path';
 const root = process.cwd();
 const outDir = join(root, 'demo-dist');
 
-rmSync(outDir, { recursive: true, force: true });
+// Clear contents in place rather than removing outDir itself: on Windows, rmSync
+// on the directory fails with EPERM if a running process (e.g. a local demo
+// server) has outDir open as its cwd.
 mkdirSync(outDir, { recursive: true });
+for (const entry of readdirSync(outDir)) {
+  rmSync(join(outDir, entry), { recursive: true, force: true });
+}
 
 const tscArgs = [
   '--target', 'es2019',
@@ -43,7 +48,13 @@ writeFileSync(join(outDir, 'index.html'), `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Holdings Transformer + eMoney Entry Assistant</title>
+    <title>eMoney Holdings Injector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app"></div>

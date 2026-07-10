@@ -200,8 +200,9 @@ test('bookmark install UI keeps dragged bookmark name clean', () => {
 test('regulated ledger shell renders the demo-ready app identity and safety badges', () => {
   const source = fs.readFileSync('main.ts', 'utf8');
 
-  assert.match(source, /Holdings eMoney Assistant/);
-  assert.match(source, /USED TO PREPARE A CONTROLLED EMONEY FILL PACKET/);
+  assert.match(source, /eMoney Holdings Injector/);
+  assert.match(source, /reviewed, human-gated csv/);
+  assert.match(source, /emoney holdings entry/);
   assert.match(source, /Account:/);
   assert.match(source, /Session Active/);
   assert.match(source, /LOCAL ONLY/);
@@ -218,7 +219,8 @@ test('regulated ledger shell exposes the four-step workflow and trust footer', (
   assert.match(source, /Prepare Fill Packet/);
   assert.match(source, /Fill in eMoney/);
   assert.match(source, /LOCAL ONLY.*NO API.*NO BACKEND/s);
-  assert.match(source, /DESIGNED FOR FINANCIAL OPERATIONS IN 2026/);
+  assert.match(source, /Local-only tool.*nothing leaves this machine/);
+  assert.match(source, /Save in eMoney is always manual/);
 });
 
 test('review surface renders sticky preflight and reconciliation-only market value labeling', () => {

@@ -1,11 +1,10 @@
 const STYLE_ID = 'regulated-ledger-style';
-
-export function installRegulatedLedgerStyles(): void {
-  if (document.getElementById(STYLE_ID)) return;
-
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = `
+export function installRegulatedLedgerStyles() {
+    if (document.getElementById(STYLE_ID))
+        return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
     :root {
       --bg: oklch(0.975 0.006 85);
       --surface: oklch(0.998 0.002 240);
@@ -1520,5 +1519,5 @@ export function installRegulatedLedgerStyles(): void {
       }
     }
   `;
-  document.head.appendChild(style);
+    document.head.appendChild(style);
 }

@@ -101,10 +101,10 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const brand = document.createElement('div');
   brand.className = 'ledger-brand';
   brand.innerHTML = [
-    '<div class="ledger-mark" aria-hidden="true">H</div>',
+    '<div class="ledger-mark" aria-hidden="true">eH</div>',
     '<div>',
-    '  <h1 class="ledger-title">Holdings eMoney Assistant</h1>',
-    '  <p class="ledger-subtitle">USED TO PREPARE A CONTROLLED EMONEY FILL PACKET</p>',
+    '  <h1 class="ledger-title">eMoney Holdings Injector</h1>',
+    '  <p class="ledger-subtitle">reviewed, human-gated csv &#8594; emoney holdings entry</p>',
     '</div>',
   ].join('');
   appHeader.appendChild(brand);
@@ -173,15 +173,58 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const controls = document.createElement('section');
   controls.className = 'ledger-panel ledger-load-panel';
 
-  const controlCopy = document.createElement('div');
-  const controlTitle = document.createElement('h2');
-  controlTitle.textContent = 'Load CSV';
-  controlCopy.appendChild(controlTitle);
+  const landingCopy = document.createElement('div');
+  landingCopy.className = 'landing-copy';
+  landingCopy.innerHTML = [
+    '<h2 class="landing-headline">Held-away holdings, entered with a paper trail.</h2>',
+    '<p class="landing-lede">A holdings CSV becomes a reviewed eMoney Fill Packet. Every row is checked before it is prepared, and nothing is saved into eMoney without an operator clicking Save.</p>',
+    '<ol class="landing-steps">',
+    '  <li><b>1</b><span><strong>Load CSV</strong> &mdash; import a custodian holdings export.</span></li>',
+    '  <li><b>2</b><span><strong>Review Holdings</strong> &mdash; every row gets an ok, review, or block verdict.</span></li>',
+    '  <li><b>3</b><span><strong>Prepare Fill Packet</strong> &mdash; only eligible rows are copied into a packet.</span></li>',
+    '  <li><b>4</b><span><strong>Fill in eMoney</strong> &mdash; a bookmarklet fills the page; you click Save.</span></li>',
+    '</ol>',
+  ].join('');
+  controls.appendChild(landingCopy);
+
+  const actionCard = document.createElement('div');
+  actionCard.className = 'landing-action-card';
+
+  const actionEyebrow = document.createElement('p');
+  actionEyebrow.className = 'landing-action-eyebrow';
+  actionEyebrow.textContent = 'Start here';
+  actionCard.appendChild(actionEyebrow);
 
   const status = document.createElement('p');
   status.className = 'ledger-status-line';
   status.textContent = 'No file loaded yet.';
-  controlCopy.appendChild(status);
+  actionCard.appendChild(status);
+
+  const actions = document.createElement('div');
+  actions.className = 'ledger-actions ledger-actions-stacked';
+
+  const sampleButton = document.createElement('button');
+  sampleButton.type = 'button';
+  sampleButton.textContent = 'Load demo sample';
+  sampleButton.className = 'ledger-button full-width';
+  actions.appendChild(sampleButton);
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv,text/csv';
+  fileInput.className = 'ledger-file-input-hidden';
+  fileInput.tabIndex = -1;
+  fileInput.setAttribute('aria-hidden', 'true');
+
+  const chooseFileButton = document.createElement('button');
+  chooseFileButton.type = 'button';
+  chooseFileButton.textContent = 'Choose CSV file';
+  chooseFileButton.className = 'ledger-button secondary full-width';
+  chooseFileButton.onclick = () => fileInput.click();
+  actions.appendChild(chooseFileButton);
+  actions.appendChild(fileInput);
+
+  actionCard.appendChild(actions);
 
   const checks = document.createElement('div');
   checks.className = 'ledger-checks';
@@ -196,25 +239,9 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     check.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
     checks.appendChild(check);
   });
-  controlCopy.appendChild(checks);
-  controls.appendChild(controlCopy);
+  actionCard.appendChild(checks);
 
-  const actions = document.createElement('div');
-  actions.className = 'ledger-actions';
-
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.csv,text/csv';
-  fileInput.className = 'ledger-file-input';
-  actions.appendChild(fileInput);
-
-  const sampleButton = document.createElement('button');
-  sampleButton.type = 'button';
-  sampleButton.textContent = 'Load Demo Sample';
-  sampleButton.className = 'ledger-button secondary';
-  actions.appendChild(sampleButton);
-  controls.appendChild(actions);
-
+  controls.appendChild(actionCard);
   shell.appendChild(controls);
 
   const reviewRoot = document.createElement('section');
@@ -225,7 +252,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   footer.className = 'ledger-footer';
   footer.innerHTML = [
     '<strong>LOCAL ONLY <span aria-hidden="true">&bull;</span> NO API <span aria-hidden="true">&bull;</span> NO BACKEND</strong>',
-    '<span>DESIGNED FOR FINANCIAL OPERATIONS IN 2026</span>',
+    '<span>Local-only tool &mdash; nothing leaves this machine. Save in eMoney is always manual.</span>',
   ].join('');
   shell.appendChild(footer);
 
