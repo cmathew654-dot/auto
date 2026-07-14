@@ -108,7 +108,7 @@ const shellCheck = await send('Runtime.evaluate', { expression: shellExpr });
 const shell = JSON.parse(shellCheck.result.result.value);
 
 await send('Runtime.evaluate', {
-  expression: `[...document.querySelectorAll('button')].find(b => b.textContent.includes('Load Demo Sample'))?.click()`,
+  expression: `[...document.querySelectorAll('button')].find(b => b.textContent.includes('Load demo sample'))?.click()`,
 });
 await new Promise((r) => setTimeout(r, 2200));
 
@@ -159,7 +159,7 @@ const expect = (cond, msg) => { if (!cond) failures.push(msg); };
 
 expect(shell.hasShell, 'shell did not render');
 expect(shell.hasStepper, 'workflow stepper did not render');
-expect(shell.title === 'Holdings eMoney Assistant', `title mismatch: "${shell.title}"`);
+expect(shell.title === 'eMoney Holdings Injector', `title mismatch: "${shell.title}"`);
 expect(shell.buildPill.startsWith('Build '), `build pill wrong: "${shell.buildPill}"`);
 expect(shell.buildInfo && shell.buildInfo.sha, 'window.__BUILD_INFO__.sha missing');
 expect(shell.buildInfo && shell.buildInfo.schemaVersion === 'emoney-fill-packet/v1', '__BUILD_INFO__.schemaVersion wrong');
