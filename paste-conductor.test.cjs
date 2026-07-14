@@ -165,6 +165,7 @@ test('eMoney location guard accepts only approved HTTPS domain boundaries', () =
   for (const [protocol, host] of [
     ['https:', 'emoneyadvisor.com'],
     ['https:', 'app.emoneyadvisor.com'],
+    ['https:', 'advisor.north.emoneyadvisor.com'],
     ['https:', 'emaplan.com'],
     ['https:', 'client.emaplan.com'],
     ['HTTPS:', 'APP.EMONEYADVISOR.COM'],
@@ -180,6 +181,13 @@ test('eMoney location guard accepts only approved HTTPS domain boundaries', () =
     ['https:', 'notemaplan.com'],
     ['https:', 'contains-emoney.example'],
     ['https:', '.emaplan.com'],
+    ['https:', '..emoneyadvisor.com'],
+    ['https:', 'a..emoneyadvisor.com'],
+    ['https:', '..emaplan.com'],
+    ['https:', 'a..emaplan.com'],
+    ['https:', '-advisor.emoneyadvisor.com'],
+    ['https:', 'advisor-.emoneyadvisor.com'],
+    ['https:', 'advisor_portal.emoneyadvisor.com'],
     ['https:', ''],
   ]) {
     assert.equal(isApprovedEmoneyLocation(protocol, host), false, `${protocol}//${host}`);

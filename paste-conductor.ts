@@ -147,7 +147,11 @@ export function isApprovedEmoneyLocation(protocol: string, hostname: string): bo
   return approvedRoots.some((root) => {
     if (normalizedHost === root) return true;
     const suffix = `.${root}`;
-    return normalizedHost.endsWith(suffix) && normalizedHost.length > suffix.length;
+    if (!normalizedHost.endsWith(suffix)) return false;
+    const subdomain = normalizedHost.slice(0, -suffix.length);
+    return subdomain.split('.').every(
+      (label) => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+    );
   });
 }
 
