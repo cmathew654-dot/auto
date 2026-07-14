@@ -7,6 +7,7 @@ const {
   buildEmoneyFillButtonScript,
   buildEmoneyFillPacket,
   buildPasteConductorSession,
+  isApprovedEmoneyLocation,
   getCurrentTransferStep,
   advanceTransferSession,
   completeTransferSession,
@@ -158,6 +159,37 @@ test('buildEmoneyFillButtonScript emits guarded bookmarklet runtime with clipboa
   assert.doesNotMatch(script, /setValue\([^)]*asset/i);
   assert.doesNotMatch(script, /setValue\([^)]*sector/i);
   assert.doesNotThrow(() => new Function(script));
+});
+
+test('eMoney location guard accepts only approved HTTPS domain boundaries', () => {
+  for (const [protocol, host] of [
+    ['https:', 'emoneyadvisor.com'],
+    ['https:', 'app.emoneyadvisor.com'],
+    ['https:', 'emaplan.com'],
+    ['https:', 'client.emaplan.com'],
+    ['HTTPS:', 'APP.EMONEYADVISOR.COM'],
+  ]) {
+    assert.equal(isApprovedEmoneyLocation(protocol, host), true, `${protocol}//${host}`);
+  }
+
+  for (const [protocol, host] of [
+    ['http:', 'emoneyadvisor.com'],
+    ['https:', 'emoneyadvisor.com.evil.test'],
+    ['https:', 'evil-emoneyadvisor.com'],
+    ['https:', 'emaplan.com.evil.test'],
+    ['https:', 'notemaplan.com'],
+    ['https:', 'contains-emoney.example'],
+    ['https:', '.emaplan.com'],
+    ['https:', ''],
+  ]) {
+    assert.equal(isApprovedEmoneyLocation(protocol, host), false, `${protocol}//${host}`);
+  }
+});
+
+test('bookmarklet uses the exported boundary guard instead of substring matching', () => {
+  const script = buildEmoneyFillButtonScript();
+  assert.match(script, /isApprovedEmoneyLocation\(location\.protocol, location\.hostname\)/);
+  assert.doesNotMatch(script, /host\.includes\(['"](?:emoney|emaplan)/);
 });
 
 test('buildEmoneyFillBookmarklet produces installable javascript URL', () => {
