@@ -61,6 +61,8 @@ const ws = new WebSocket(target.webSocketDebuggerUrl);
 let msgId = 0;
 const pending = new Map();
 const unexpectedRequests = [];
+const consoleEntries = [];
+const runtimeErrors = [];
 ws.addEventListener('message', (ev) => {
   const msg = JSON.parse(ev.data);
   if (msg.method === 'Network.requestWillBeSent') {
@@ -68,6 +70,12 @@ ws.addEventListener('message', (ev) => {
     if (!url.startsWith('file://') && !url.startsWith('about:') && !url.startsWith('data:') && url !== '') {
       unexpectedRequests.push(url);
     }
+  }
+  if (msg.method === 'Runtime.consoleAPICalled') {
+    consoleEntries.push(msg.params.args.map((arg) => arg.value ?? arg.description ?? '').join(' '));
+  }
+  if (msg.method === 'Runtime.exceptionThrown') {
+    runtimeErrors.push(msg.params.exceptionDetails.text || msg.params.exceptionDetails.exception?.description || 'runtime exception');
   }
   if (msg.id && pending.has(msg.id)) {
     pending.get(msg.id)(msg);
@@ -138,6 +146,11 @@ const packetExpr = `(async () => {
 const packetCheck = await send('Runtime.evaluate', { expression: packetExpr, awaitPromise: true });
 const packet = JSON.parse(packetCheck.result.result.value);
 
+await send('Runtime.evaluate', {
+  expression: `[...document.querySelectorAll('button')].find(b => b.textContent.includes('Export JSON Payload'))?.click()`,
+});
+await new Promise((resolve) => setTimeout(resolve, 250));
+
 ws.close();
 cp.kill();
 
@@ -173,6 +186,12 @@ expect(packet.firstHolding && !('sector' in packet.firstHolding), 'packet leaks 
 expect(packet.firstHolding && !('description' in packet.firstHolding), 'packet leaks description per row');
 
 expect(unexpectedRequests.length === 0, `${unexpectedRequests.length} unexpected network requests: ${unexpectedRequests.slice(0, 5).join(', ')}`);
+
+const consoleText = consoleEntries.join('\n');
+const forbiddenPayloadLabel = ['Exported assistant', ' payload'].join('');
+expect(!(new RegExp(forbiddenPayloadLabel, 'i')).test(consoleText), 'complete payload log label reached console');
+expect(!/123456789|AAPL|MSFT|GOOG|1450|1800|900/.test(consoleText), 'account or position values reached console');
+expect(runtimeErrors.length === 0, `runtime errors: ${runtimeErrors.join(' | ')}`);
 
 if (failures.length) {
   console.error('Portable E2E failures:');

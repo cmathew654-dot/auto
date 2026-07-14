@@ -43,10 +43,6 @@ export function runLocalMvp(
   });
 
   renderReviewExportSurface(container, ingestionFile, {
-    onExport: (payload) => {
-      // Local visibility for operator/engineer; no network or persistence.
-      console.log('Exported assistant payload:', payload);
-    },
     onPacketPrepared: opts?.onPacketPrepared,
   });
 
