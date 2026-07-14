@@ -125,3 +125,47 @@ test('unique match proceeds and reports key path', async () => {
     assert.equal(row.fields.costBasis.value, '55');
   });
 });
+
+test('helper writes only ticker, units, and cost basis', async () => {
+  const row = makeRow({
+    ticker: 'OLD',
+    cusip: '111111111',
+    description: 'Existing demo position',
+    units: '1',
+    costBasis: '10',
+    marketValue: '99',
+    assetClass: 'Existing class',
+    sector: 'Existing sector',
+  });
+
+  await withFakeDom([row], async () => {
+    const result = await upsertHolding({
+      ticker: 'NEW',
+      cusip: '999999999',
+      description: 'Existing demo position',
+      units: 5,
+      costBasis: 55,
+      marketValue: 999,
+      assetClass: 'Changed class',
+      sector: 'Changed sector',
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(row.fields.ticker.value, 'NEW');
+    assert.equal(row.fields.units.value, '5');
+    assert.equal(row.fields.costBasis.value, '55');
+    assert.equal(row.fields.cusip.value, '111111111');
+    assert.equal(row.fields.description.value, 'Existing demo position');
+    assert.equal(row.fields.marketValue.value, '99');
+    assert.equal(row.fields.assetClass.value, 'Existing class');
+    assert.equal(row.fields.sector.value, 'Existing sector');
+  });
+});
+
+test('CUSIP-only input cannot add a new row because CUSIP is matching metadata', async () => {
+  await withFakeDom([], async () => {
+    const result = await upsertHolding({ cusip: '333333333', units: 5, costBasis: 55 });
+    assert.equal(result.ok, false);
+    assert.match(result.errors.join(' '), /ticker is required/i);
+  });
+});

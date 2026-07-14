@@ -15,11 +15,15 @@ import {
  * - Human-in-the-loop: only prepares payloads; does not auto-send or auto-save
  */
 
+export interface AssistantHoldingPayload extends BrowserHoldingInput {
+  marketValue: number | null;
+}
+
 export interface AssistantAccountPayload {
   accountId: string;
   accountNumber: string;
   accountType: string;
-  holdings: BrowserHoldingInput[];
+  holdings: AssistantHoldingPayload[];
 }
 
 export interface HoldingEligibility {
@@ -119,7 +123,7 @@ export function isHoldingEligible(holding: HoldingRecord, opts?: { allowManualOv
   return getHoldingEligibility(holding, opts).eligible;
 }
 
-export function toAssistantHolding(holding: HoldingRecord): BrowserHoldingInput {
+export function toAssistantHolding(holding: HoldingRecord): AssistantHoldingPayload {
   return {
     ticker: holding.ticker ?? null,
     cusip: holding.cusip ?? null,
