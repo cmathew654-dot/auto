@@ -28,10 +28,6 @@ export function runLocalMvp(container, csvText = SAMPLE_CSV_INPUT, opts) {
         sourceFilename: (_a = opts === null || opts === void 0 ? void 0 : opts.sourceFilename) !== null && _a !== void 0 ? _a : 'inline-sample.csv',
     });
     renderReviewExportSurface(container, ingestionFile, {
-        onExport: (payload) => {
-            // Local visibility for operator/engineer; no network or persistence.
-            console.log('Exported assistant payload:', payload);
-        },
         onPacketPrepared: opts === null || opts === void 0 ? void 0 : opts.onPacketPrepared,
     });
     return ingestionFile;

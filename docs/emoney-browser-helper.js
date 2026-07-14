@@ -108,44 +108,34 @@ export async function addHoldingRow() {
     throw new Error('Failed to detect a newly added holding row.');
 }
 /**
- * Writes holding values into a row.
- * - Writes ticker/cusip then blurs to allow eMoney lookup.
- * - Does not write asset class/sector (autopopulated by eMoney).
- * - Market value disabled is treated as warning, not fatal.
+ * Writes only approved review fields into a row.
+ * - CUSIP and description are read-only matching metadata.
+ * - Writes ticker, units, and cost basis.
+ * - Does not write market value, asset class, sector, description, or Save.
  */
 export async function fillHoldingRow(row, holding) {
-    var _a, _b;
+    var _a;
     const warnings = [];
     const errors = [];
-    const lookupValue = normalizeToken(holding.cusip) ? holding.cusip : ((_a = holding.ticker) !== null && _a !== void 0 ? _a : '');
-    if (!normalizeToken(lookupValue)) {
-        errors.push('Missing ticker/cusip for lookup.');
+    const requestedTicker = String((_a = holding.ticker) !== null && _a !== void 0 ? _a : '').trim();
+    const existingTicker = normalizeToken(readHoldingRow(row).ticker);
+    if (requestedTicker) {
+        if (!setInputValue(row, SELECTORS.ticker, requestedTicker)) {
+            errors.push('Could not find ticker field in row.');
+            return { ok: false, warnings, errors };
+        }
+        blurField(row, SELECTORS.ticker);
+        await sleep(250);
+    }
+    else if (!existingTicker) {
+        errors.push('Ticker is required before a new row can be filled.');
         return { ok: false, warnings, errors };
     }
-    const wroteCusip = normalizeToken(holding.cusip)
-        ? setInputValue(row, SELECTORS.cusip, String(holding.cusip).trim())
-        : false;
-    const wroteTicker = !wroteCusip ? setInputValue(row, SELECTORS.ticker, String((_b = holding.ticker) !== null && _b !== void 0 ? _b : '').trim()) : false;
-    if (!wroteCusip && !wroteTicker) {
-        errors.push('Could not find ticker/cusip field in row.');
-        return { ok: false, warnings, errors };
-    }
-    blurField(row, wroteCusip ? SELECTORS.cusip : SELECTORS.ticker);
-    await sleep(250);
     if (holding.units != null && !setInputValue(row, SELECTORS.units, String(holding.units))) {
         warnings.push('Units field not found; skipped.');
     }
     if (holding.costBasis != null && !setInputValue(row, SELECTORS.costBasis, String(holding.costBasis))) {
         warnings.push('Cost basis field not found; skipped.');
-    }
-    if (holding.marketValue != null) {
-        const marketValueEl = firstMatch(row, SELECTORS.marketValue);
-        if (marketValueEl instanceof HTMLInputElement && marketValueEl.disabled) {
-            warnings.push('Market value field is disabled in eMoney; treated as warning.');
-        }
-        else if (!setInputValue(row, SELECTORS.marketValue, String(holding.marketValue))) {
-            warnings.push('Market value field not found; skipped.');
-        }
     }
     return { ok: errors.length === 0, warnings, errors };
 }
@@ -200,6 +190,13 @@ export async function upsertHolding(holding) {
             candidateCount: match.candidateCount,
         };
     }
+    if (match.status === 'none' && !normalizeToken(holding.ticker)) {
+        return {
+            ok: false,
+            warnings: [],
+            errors: ['Ticker is required to add a new holding; CUSIP is matching metadata only.'],
+        };
+    }
     const row = match.status === 'unique' && match.row ? match.row : await addHoldingRow();
     return fillHoldingRow(row, holding);
 }
@@ -220,7 +217,7 @@ export async function processHoldingsBatch(holdings) {
 /** Example parser-to-assistant input (minimal shape expected by this helper). */
 export const exampleHoldingsInput = [
     { ticker: 'VTI', units: 100, costBasis: 25000 },
-    { cusip: '594918104', units: 50, costBasis: 10000, marketValue: 17500 },
+    { ticker: 'MSFT', cusip: '594918104', units: 50, costBasis: 10000 },
 ];
 /** Example usage in browser console / injected script. */
 export async function exampleUsage() {

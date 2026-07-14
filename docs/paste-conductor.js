@@ -58,10 +58,28 @@ export function buildEmoneyFillPacket(payload, opts) {
 export function serializeEmoneyFillPacket(packet) {
     return JSON.stringify(packet, null, 2);
 }
+export function isApprovedEmoneyLocation(protocol, hostname) {
+    const normalizedProtocol = protocol.trim().toLowerCase();
+    const normalizedHost = hostname.trim().toLowerCase();
+    const approvedRoots = ['emoneyadvisor.com', 'emaplan.com'];
+    if (normalizedProtocol !== 'https:')
+        return false;
+    return approvedRoots.some((root) => {
+        if (normalizedHost === root)
+            return true;
+        const suffix = `.${root}`;
+        if (!normalizedHost.endsWith(suffix))
+            return false;
+        const subdomain = normalizedHost.slice(0, -suffix.length);
+        return subdomain.split('.').every((label) => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label));
+    });
+}
+const EMONEY_LOCATION_GUARD_SOURCE = isApprovedEmoneyLocation.toString();
 const EMONEY_FILL_BUTTON_SCRIPT = `(() => {
   const OVERLAY_ID = 'emoney-fill-button-overlay';
   const PACKET_SCHEMA_VERSION = 'emoney-fill-packet/v1';
   const PACKET_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+  ${EMONEY_LOCATION_GUARD_SOURCE}
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const state = { packet: null, status: 'idle', busy: false, results: [] };
 
@@ -103,11 +121,8 @@ const EMONEY_FILL_BUTTON_SCRIPT = `(() => {
   }
 
   function isExpectedEmoneyHoldingsPage() {
-    const host = normalize(location.hostname);
     const pageText = normalize((document.title || '') + ' ' + location.href + ' ' + ((document.body && document.body.innerText) || '').slice(0, 12000));
-    // eMoney's advisor portal serves on emaplan.com (legacy EMA Plan domain); emoneyadvisor.com
-    // and similar are the alternate branded hosts. Accept either family with the holdings-text guard.
-    var isEmoneyHost = host.includes('emoney') || host.includes('emaplan');
+    const isEmoneyHost = isApprovedEmoneyLocation(location.protocol, location.hostname);
     return isEmoneyHost && pageText.includes('holding');
   }
 
