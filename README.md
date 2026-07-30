@@ -4,7 +4,7 @@ A browser-based helper for reviewing holdings CSVs and preparing repetitive hold
 
 The demo uses synthetic data. It parses a CSV, shows which rows need attention, and prepares eligible rows for browser entry. The operator reviews the destination page and clicks Save in eMoney manually.
 
-[Try the synthetic demo](https://cyrilmathew-builds.github.io/holdings-entry-assistant/) · [See the reconstructed intake interview](https://cyrilmathew-builds.github.io/holdings-entry-assistant/how-it-started/) · [Read how it started](docs/how-it-started.md)
+[Try the synthetic demo](https://cmathew654-dot.github.io/holdings-entry-assistant/) · [See the reconstructed intake interview](https://cmathew654-dot.github.io/holdings-entry-assistant/how-it-started/) · [Read how it started](docs/how-it-started.md)
 
 ## What it does
 
