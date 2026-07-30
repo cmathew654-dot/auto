@@ -9,14 +9,14 @@
  * Developer usage remains available:
  *   runLocalMvp(document.getElementById('review-root')!, myCsvText);
  *
- * Safety: all parsing/rendering happens locally in the browser. There is no
- * backend, no network upload, no persistence, and no auto-save behavior.
+ * The current build parses and renders in the browser, does not call a project
+ * server, and never triggers an eMoney Save action.
  */
 
 import { parseHoldingsCsvToIngestionFile } from './holdings-csv-parser';
 import type { HoldingsIngestionFile } from './holdings-schema';
 import { installRegulatedLedgerStyles } from './ledger-styles';
-import { renderReviewExportSurface } from './review-export-surface';
+import { clearMatchingClipboard, renderReviewExportSurface } from './review-export-surface';
 
 export const SAMPLE_CSV_INPUT = [
   'Account Description,Account Number,Owner,Last Updated,Symbol,Description,Quantity,Price,Cost Basis,Value,Asset Class',
@@ -30,6 +30,7 @@ type WorkflowStep = 'load' | 'review' | 'packet' | 'fill';
 interface LocalMvpOptions {
   sourceFilename?: string;
   onPacketPrepared?: (event: { accountNumber: string; rowCount: number; copied: boolean }) => void;
+  onClipboardWrite?: (text: string) => void;
 }
 
 export function runLocalMvp(
@@ -44,6 +45,7 @@ export function runLocalMvp(
 
   renderReviewExportSurface(container, ingestionFile, {
     onPacketPrepared: opts?.onPacketPrepared,
+    onClipboardWrite: opts?.onClipboardWrite,
   });
 
   return ingestionFile;
@@ -97,10 +99,10 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const brand = document.createElement('div');
   brand.className = 'ledger-brand';
   brand.innerHTML = [
-    '<div class="ledger-mark" aria-hidden="true">eH</div>',
+    '<div class="ledger-mark" aria-hidden="true">HE</div>',
     '<div>',
-    '  <h1 class="ledger-title">eMoney Holdings Injector</h1>',
-    '  <p class="ledger-subtitle">reviewed, human-gated csv &#8594; emoney holdings entry</p>',
+    '  <h1 class="ledger-title">Holdings Entry Assistant</h1>',
+    '  <p class="ledger-subtitle">reviewed csv &#8594; browser entry</p>',
     '</div>',
   ].join('');
   appHeader.appendChild(brand);
@@ -115,7 +117,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const badges = document.createElement('div');
   badges.className = 'ledger-safety-badges';
-  ['LOCAL ONLY', 'NO API', 'NO BACKEND', 'Manual Save in eMoney'].forEach((label) => {
+  ['BROWSER PROCESSING', 'NO PROJECT SERVER', 'Manual Save in eMoney'].forEach((label) => {
     const badge = document.createElement('span');
     badge.textContent = label;
     badges.appendChild(badge);
@@ -218,6 +220,13 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   chooseFileButton.className = 'ledger-button secondary full-width';
   chooseFileButton.onclick = () => fileInput.click();
   actions.appendChild(chooseFileButton);
+
+  const clearSessionButton = document.createElement('button');
+  clearSessionButton.type = 'button';
+  clearSessionButton.textContent = 'Clear session';
+  clearSessionButton.className = 'ledger-button ghost full-width';
+  clearSessionButton.disabled = true;
+  actions.appendChild(clearSessionButton);
   actions.appendChild(fileInput);
 
   actionCard.appendChild(actions);
@@ -227,7 +236,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   [
     ['Current step', 'Local CSV review'],
     ['Storage', 'No auto-save'],
-    ['Network', 'No backend'],
+    ['Network', 'No project server'],
     ['eMoney Save', 'Manual'],
   ].forEach(([label, value]) => {
     const check = document.createElement('div');
@@ -247,14 +256,21 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const footer = document.createElement('footer');
   footer.className = 'ledger-footer';
   footer.innerHTML = [
-    '<strong>LOCAL ONLY <span aria-hidden="true">&bull;</span> NO API <span aria-hidden="true">&bull;</span> NO BACKEND</strong>',
-    '<span>Local-only tool &mdash; nothing leaves this machine. Save in eMoney is always manual.</span>',
+    '<strong>BROWSER PROCESSING <span aria-hidden="true">&bull;</span> NO PROJECT SERVER</strong>',
+    '<span>The current build does not send holdings data to a project server. Use only authorized data. Save in eMoney is always manual.</span>',
   ].join('');
   shell.appendChild(footer);
+
+  let lastCopiedText: string | null = null;
+
+  const trackClipboardWrite = (text: string) => {
+    lastCopiedText = text;
+  };
 
   const markSessionActive = (ingestion: HoldingsIngestionFile) => {
     session.innerHTML = `Account: ${summarizeSessionAccount(ingestion)} <span aria-hidden="true">&bull;</span> Session Active <i aria-hidden="true"></i>`;
     session.classList.add('is-active');
+    clearSessionButton.disabled = false;
   };
 
   const loadCsvFile = async (file: File): Promise<void> => {
@@ -270,12 +286,13 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       const ingestion = runLocalMvp(reviewRoot, text, {
         sourceFilename: file.name,
         onPacketPrepared: (event) => setWorkflowStep(event.copied ? 'fill' : 'packet'),
+        onClipboardWrite: trackClipboardWrite,
       });
       markSessionActive(ingestion);
       setWorkflowStep('review');
       setStatus(status, `${file.name} is ready for review.`, 'success');
     } catch (err) {
-      console.error(err);
+      console.error('Could not load the selected CSV.');
       setStatus(status, `Could not load CSV: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
   };
@@ -293,20 +310,41 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       const ingestion = runLocalMvp(reviewRoot, SAMPLE_CSV_INPUT, {
         sourceFilename: 'demo-sample.csv',
         onPacketPrepared: (event) => setWorkflowStep(event.copied ? 'fill' : 'packet'),
+        onClipboardWrite: trackClipboardWrite,
       });
       markSessionActive(ingestion);
       setWorkflowStep('review');
       setStatus(status, 'Demo sample is ready for review.', 'success');
     } catch (err) {
-      console.error(err);
+      console.error('Could not load the demo sample.');
       setStatus(status, `Could not load demo sample: ${err instanceof Error ? err.message : String(err)}`, 'error');
+    }
+  };
+
+  clearSessionButton.onclick = async () => {
+    const clipboardResult = await clearMatchingClipboard(lastCopiedText, navigator.clipboard);
+    reviewRoot.replaceChildren();
+    reviewRoot.className = '';
+    fileInput.value = '';
+    lastCopiedText = null;
+    session.innerHTML = 'Account: Not loaded <span aria-hidden="true">&bull;</span> Session Idle <i aria-hidden="true"></i>';
+    session.classList.remove('is-active');
+    clearSessionButton.disabled = true;
+    setWorkflowStep('load');
+
+    if (clipboardResult === 'cleared') {
+      setStatus(status, 'Session cleared. The matching clipboard payload was also removed.', 'success');
+    } else if (clipboardResult === 'unchanged') {
+      setStatus(status, 'Session cleared. Newer clipboard content was preserved.', 'success');
+    } else {
+      setStatus(status, 'Session cleared. Clipboard content was preserved because access was unavailable.', 'info');
     }
   };
 
   // Drag-and-drop: drop a CSV anywhere on the window to load it.
   const dropOverlay = document.createElement('div');
   dropOverlay.className = 'ledger-drop-overlay';
-  dropOverlay.innerHTML = '<div class="ledger-drop-card"><strong>Drop CSV to load</strong><span>Local only · No upload</span></div>';
+  dropOverlay.innerHTML = '<div class="ledger-drop-card"><strong>Drop CSV to load</strong><span>Browser processing · No project server</span></div>';
   document.body.appendChild(dropOverlay);
 
   let dragCounter = 0;

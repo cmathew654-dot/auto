@@ -10,9 +10,8 @@ import {
 } from './paste-conductor';
 
 /**
- * Minimal review/export surface for internal local-only workflow.
- * - No styling framework
- * - Human-in-the-loop: only prepares payloads; does not auto-send or auto-save
+ * Review and export surface for the browser workflow.
+ * It prepares operator-controlled payloads and never triggers an eMoney Save action.
  */
 
 export interface AssistantHoldingPayload extends BrowserHoldingInput {
@@ -51,6 +50,7 @@ export interface AccountRowDisplayItem {
 export interface ReviewExportSurfaceOptions {
   onExport?: (payload: AssistantAccountPayload) => void;
   onPacketPrepared?: (event: { accountNumber: string; rowCount: number; copied: boolean }) => void;
+  onClipboardWrite?: (text: string) => void;
 }
 
 export const MANUAL_REVIEW_REQUIRED_CODES = new Set<Issue['code']>([
@@ -203,7 +203,8 @@ export function buildEmoneyDevtoolsSnippet(payload: AssistantAccountPayload): st
     console.warn('eMoney fill cancelled before any row changes.');
     return;
   }
-  const results = [];
+  let completedCount = 0;
+  let failedCount = 0;
 
   function visible(el) {
     const rect = el.getBoundingClientRect();
@@ -269,10 +270,7 @@ export function buildEmoneyDevtoolsSnippet(payload: AssistantAccountPayload): st
     };
   }
 
-  console.log('Starting eMoney holdings fill. This will NOT click Save.', rows);
-
-  for (const [index, row] of rows.entries()) {
-    console.log(\`Adding row ${'${index + 1}'}/${'${rows.length}'}\`, row);
+  for (const row of rows) {
     try {
       await clickAddHolding();
       await sleep(500);
@@ -289,32 +287,16 @@ export function buildEmoneyDevtoolsSnippet(payload: AssistantAccountPayload): st
       setValue(fields.units, row.units);
       setValue(fields.costBasis, row.costBasis);
 
-      results.push({
-        row: index + 1,
-        ticker: row.ticker,
-        units: row.units,
-        costBasis: row.costBasis,
-        referenceMarketValue: row.marketValue || '(none)',
-        status: 'filled',
-        message: 'Ticker, units, and cost basis filled. Market value not filled; eMoney calculates it.',
-      });
-    } catch (err) {
-      results.push({
-        row: index + 1,
-        ticker: row.ticker,
-        units: row.units,
-        costBasis: row.costBasis,
-        referenceMarketValue: row.marketValue || '(none)',
-        status: 'failed',
-        message: err instanceof Error ? err.message : String(err),
-      });
-      console.error('Stopped on row failure. Review manually.', err);
+      completedCount += 1;
+      // Market value not filled; eMoney calculates it.
+    } catch {
+      failedCount += 1;
+      console.error('eMoney fill stopped. Review the remaining holdings manually.');
       break;
     }
   }
 
-  console.table(results);
-  console.log('Done. Review every row visually. Save remains manual.');
+  console.log(\`eMoney fill finished: \${completedCount} completed, \${failedCount} failed. Review every holding visually. Save remains manual.\`);
 })();`;
 }
 
@@ -354,6 +336,28 @@ function appendCell(row: HTMLTableRowElement, text: string): void {
   const cell = document.createElement('td');
   cell.textContent = text;
   row.appendChild(cell);
+}
+
+export interface ClipboardAccess {
+  readText?: () => Promise<string>;
+  writeText?: (text: string) => Promise<void>;
+}
+
+export type ClearClipboardResult = 'cleared' | 'unchanged' | 'unavailable';
+
+export async function clearMatchingClipboard(
+  expectedText: string | null,
+  clipboard?: ClipboardAccess
+): Promise<ClearClipboardResult> {
+  if (!expectedText || !clipboard?.readText || !clipboard.writeText) return 'unavailable';
+  try {
+    const currentText = await clipboard.readText();
+    if (currentText !== expectedText) return 'unchanged';
+    await clipboard.writeText('');
+    return 'cleared';
+  } catch {
+    return 'unavailable';
+  }
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -728,6 +732,7 @@ export function renderReviewExportSurface(
         const copied = await copyTextToClipboard(serializedPacket);
         packetCopyStatus = copied ? 'copied' : 'blocked';
         packetCopiedAt = copied ? new Date() : null;
+        if (copied) opts?.onClipboardWrite?.(serializedPacket);
         opts?.onPacketPrepared?.({
           accountNumber: activeFillPacket.accountNumber,
           rowCount: activeFillPacket.rowCount,
@@ -785,6 +790,7 @@ export function renderReviewExportSurface(
       copyBookmarkBtn.onclick = async () => {
         const copied = await copyTextToClipboard(bookmarkletHref);
         if (copied) {
+          opts?.onClipboardWrite?.(bookmarkletHref);
           opts?.onPacketPrepared?.({
             accountNumber: account.accountNumber,
             rowCount: activeFillPacket?.rowCount ?? 0,
@@ -836,6 +842,7 @@ export function renderReviewExportSurface(
       fallbackBtn.onclick = async () => {
         if (!activeManualBatch || activeManualBatch.rowCount === 0) return;
         const copied = await copyTextToClipboard(activeManualBatch.clipboardText);
+        if (copied) opts?.onClipboardWrite?.(activeManualBatch.clipboardText);
         showOutput(
           copied
             ? buildBatchTransferReport(activeManualBatch)

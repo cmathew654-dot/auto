@@ -1,70 +1,44 @@
-# eMoney Holdings Injector
+# Holdings Entry Assistant
 
-A local-only tool that turns a custodial holdings export (CSV) into a reviewed, human-confirmed data entry pass into [eMoney Advisor](https://emaplan.com) (Fidelity's financial planning platform for advisors). It parses the file, gates which rows are safe to enter, and then uses a browser bookmarklet to fill three fields per holding on eMoney's own Holdings page. The advisor reviews and saves manually every time.
+A browser-based helper for reviewing holdings CSVs and preparing repetitive holdings entry in eMoney. It came out of a simple question: where was planner time disappearing during plan setup, and which part of that work was mechanical enough to make easier?
 
-Built by a practicing financial advisor (Series 7/63/65) to remove a repetitive, error-prone part of client onboarding and account maintenance.
+The demo uses synthetic data. It parses a CSV, shows which rows need attention, and prepares eligible rows for browser entry. The operator reviews the destination page and clicks Save in eMoney manually.
 
-**[▶ Try the live demo](https://cmathew654-dot.github.io/emoney-holdings-injector/)** — loads a synthetic sample and walks the full review → packet → simulated-fill flow in your browser. Nothing is uploaded anywhere.
+[Try the synthetic demo](https://cyrilmathew-builds.github.io/holdings-entry-assistant/) · [See the reconstructed intake interview](https://cyrilmathew-builds.github.io/holdings-entry-assistant/how-it-started/) · [Read how it started](docs/how-it-started.md)
 
-![Tests](https://img.shields.io/badge/tests-49%2F49-2ea44f) ![Local only](https://img.shields.io/badge/network-local_only-blue) ![Save](https://img.shields.io/badge/eMoney_save-always_manual-b58900) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
+## What it does
 
-**The Regulated Ledger** — every parsed row gets an eligible/review/block verdict with the reason on the row, and the Transfer Packet carries exactly three fields.
+1. Detects the holdings header and maps common CSV column names.
+2. Groups positions by account and flags cash, duplicates, unusual pricing, and unmapped account types.
+3. Shows every row before entry and excludes blocked rows by default.
+4. Prepares ticker, units, and cost basis in a versioned fill packet.
+5. Runs only when the operator clicks a bookmark on an eMoney Holdings page. Save remains manual.
 
-![Holdings review ledger with eligibility verdicts and transfer packet](docs/media/review-ledger-hero.png)
+Ambiguous matches stop instead of guessing. Market value stays visible for comparison but is not written by the fill packet.
 
-## The problem
+## Data boundary
 
-Advisory firms plan against eMoney, but held-away or newly transferred accounts often arrive as a custodial CSV, not a clean eMoney import. The common workaround is manually re-keying ticker, share count, and cost basis for every position, one field at a time, while cross-checking a spreadsheet. It is slow and it is exactly the kind of repetitive manual entry where transposition errors happen.
+The current browser build does not send holdings data to a project server. A prepared packet is copied to the system clipboard when the operator asks for it, then read by the bookmark on the visible eMoney page.
 
-This tool does not automate away the advisor's judgment. It automates the typing, after the advisor has reviewed what will be typed.
+“Clear session” removes the loaded data from the page. It clears the clipboard only when the clipboard still contains the last payload written by this session; anything copied later is preserved. Use only synthetic or otherwise authorized data.
 
-## How it works
+See [DISCLAIMER.md](DISCLAIMER.md) for the project boundary and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
-1. **Parse** — `holdings-csv-parser.ts` reads a custodial CSV, detects the header row (handles preamble/report lines above it), maps common column aliases (`Symbol`/`Ticker`, `Quantity`/`Shares`/`Units`, etc.), and groups rows into accounts.
-2. **Gate** — Every row is checked against a conservative eligibility policy before it's exportable: cash rows, zero-price/nonzero-value rows, duplicates, and unmapped account types are flagged and excluded by default. Nothing is silently dropped; everything shows up as a visible issue.
-3. **Review** — `review-export-surface.ts` renders a "Regulated Ledger" view (`ledger-styles.ts`) where the advisor sees every row's eligible/blocked status and why, before anything is prepared for entry.
-4. **Fill Packet** — Reviewed, eligible rows are packaged into a versioned "eMoney Fill Packet" (`paste-conductor.ts`) containing only ticker, units, and cost basis per holding.
-5. **Bookmarklet entry** — The advisor drags a "Fill eMoney Holdings" bookmarklet to their browser bar once. On the live eMoney Holdings page, clicking it shows a confirmation overlay with the account and row count. After confirming, `emoney-browser-helper.ts` matches each holding to an existing row (by CUSIP, then ticker, then description) or adds a new one, and fills only the approved fields. The advisor reviews the page and clicks Save in eMoney manually — the tool never does this for them.
-
-## Safety guarantees
-
-This is the part that matters most in a compliance-sensitive workflow, so it's enforced in code, not just policy:
-
-- **Local-only.** No backend, no server, no external API calls for client data. Parsing and rendering happen entirely in the browser (or the optional local desktop shell).
-- **Three fields, never more.** The bookmarklet writes exactly ticker, units, and cost basis. It does not write market value, asset class, sector, or description — eMoney derives market value from shares and pricing, so the tool treats it as reconciliation-only, not something to overwrite.
-- **Never saves.** There is no code path that clicks Save. Every entry ends with the advisor reviewing the page and saving manually.
-- **Ambiguous matches hard-stop.** If a holding matches more than one row on the page by CUSIP, ticker, or description, the helper refuses to guess (`AMBIGUOUS_MATCH`) and requires manual resolution instead of picking one.
-- **Conservative-by-default gating.** Cash rows, zero-price/nonzero-value rows, unmapped account types, and duplicate holdings are excluded from the Fill Packet unless an operator explicitly reviews and overrides — override is off by default.
-- **Versioned packet format.** The Fill Packet carries a schema version; a mismatched version is rejected rather than partially applied.
-- **No hidden automation surface.** This is a bookmarklet the advisor clicks on the visible eMoney page, not a browser extension, background service, or API integration — nothing runs without a human clicking it, on the page they're currently looking at.
-
-## Tech stack
-
-- TypeScript, compiled with `tsc` and bundled for the browser demo with `esbuild` — no frontend framework.
-- Plain DOM rendering (`review-export-surface.ts`, `ledger-styles.ts`) for the review UI.
-- Node's built-in test runner (`node:test`) for parser, review-surface, packet, and browser-helper tests (the browser helper is tested against a lightweight fake-DOM harness, not full browser E2E).
-- Optional [Tauri](https://tauri.app) shell (`src-tauri/`) for a Windows-first desktop build of the same local workflow — same code, no server, no API access added.
-
-## Running it
+## Run it
 
 ```bash
-npm install
-npm test            # type-checks + runs the parser/review/packet/helper test suite
-npm run typecheck    # no-emit TypeScript check across all modules
-npm run build:demo   # builds the static browser demo into demo-dist/
-npm run start:demo   # builds + serves the demo at http://localhost:8080/
+npm ci
+npm test
+npm run typecheck
+npm run build:demo
+npm run build:portable
+npm run test:portable
 ```
 
-To try the full flow without any real client data, use the sample file in [`sample-data/sample-holdings.csv`](sample-data/sample-holdings.csv) — fake account numbers, a fake household ("Sample Household"), and public tickers (VTI, AAPL, VXUS, BND), plus a cash row and a zero-price row so you can see the eligibility gate actually block and flag something. Load it from the demo UI's "Choose CSV File" control after running `npm run start:demo`.
+`npm run start:demo` serves the browser build locally. The portable build produces one self-contained HTML file with a restrictive content security policy.
 
-There is no `desktop:dev`/`desktop:build` step required to evaluate this repo — those build the optional Tauri shell and require a Rust toolchain.
-
-## Privacy & safety
-
-- No real client data is included anywhere in this repository. `sample-data/sample-holdings.csv` uses fake account numbers and a fake household name.
-- The tool never transmits holdings data off the local machine — there is no network call in the parsing, review, or fill path.
-- eMoney is a product of Fidelity/eMoney Advisor. This project is an independent, unaffiliated helper that operates entirely through the standard browser page an advisor is already logged into; it is not an eMoney API integration and is not endorsed by eMoney.
+The implementation is TypeScript and plain DOM code, with Node’s built-in test runner, esbuild for the portable artifact, and an optional Tauri shell.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

@@ -2,6 +2,6 @@
 pub fn run() {
     tauri::Builder::default()
         .run(tauri::generate_context!())
-        .expect("error while running Holdings eMoney Assistant");
+        .expect("error while running Holdings Entry Assistant");
 }
 

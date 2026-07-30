@@ -30,9 +30,9 @@ export function installRegulatedLedgerStyles(): void {
       --block-soft: oklch(0.97 0.022 25);
       --block-line: oklch(0.86 0.07 25);
 
-      --sans: 'Fraunces', Georgia, serif;
-      --sans-text: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
-      --mono: 'IBM Plex Mono', 'Cascadia Code', "Cascadia Mono", "Consolas", ui-monospace, monospace;
+      --sans: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      --sans-text: Aptos, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+      --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
 
       --r-sm: 3px;
       --r: 4px;
