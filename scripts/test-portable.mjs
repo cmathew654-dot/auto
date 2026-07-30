@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const headed = process.argv.includes('--headed');
-const portableHtml = resolve('demo-dist-portable', 'Holdings-eMoney-Assistant.html');
+const portableHtml = resolve('demo-dist-portable', 'Holdings-Entry-Assistant.html');
 if (!existsSync(portableHtml)) {
   console.error(`Portable bundle not found at ${portableHtml}. Run 'npm run build:portable' first.`);
   process.exit(1);
@@ -18,9 +18,9 @@ const portableUrl = 'file:///' + portableHtml.replace(/\\/g, '/');
 const userData = mkdtempSync(join(tmpdir(), 'chrome-test-portable-'));
 const chromeCandidates = [
   process.env.CHROME_BIN,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   '/usr/bin/google-chrome',
   '/usr/bin/chromium',
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -38,10 +38,25 @@ const args = [
   `--user-data-dir=${userData}`,
   `--remote-debugging-port=${port}`,
   '--window-size=1440,1700',
-  'about:blank',
+  portableUrl,
 ];
-const cp = spawn(chrome, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-cp.on('error', (e) => { console.error('spawn error', e.message); process.exit(1); });
+const cp = spawn(chrome, args, { stdio: 'ignore' });
+let ws = null;
+let cleanedUp = false;
+function cleanup() {
+  if (cleanedUp) return;
+  cleanedUp = true;
+  try { ws?.close(); } catch {}
+  if (!cp.killed) cp.kill();
+}
+process.once('exit', cleanup);
+process.once('unhandledRejection', (error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  cleanup();
+  process.exit(1);
+});
+process.once('SIGINT', () => { cleanup(); process.exit(130); });
+cp.on('error', (e) => { console.error('spawn error', e.message); cleanup(); process.exit(1); });
 
 async function waitForPort() {
   for (let i = 0; i < 80; i++) {
@@ -55,9 +70,30 @@ if (!await waitForPort()) {
   cp.kill(); process.exit(1);
 }
 
-const tabs = await (await fetch(`http://localhost:${port}/json`)).json();
-const target = tabs.find((t) => t.type === 'page');
-const ws = new WebSocket(target.webSocketDebuggerUrl);
+let target = null;
+for (let attempt = 0; attempt < 40 && !target; attempt += 1) {
+  const tabs = await (await fetch(`http://localhost:${port}/json`)).json();
+  target = tabs.find((entry) =>
+    entry.type === 'page' &&
+    entry.url?.startsWith('file:') &&
+    entry.url.endsWith('Holdings-Entry-Assistant.html')
+  ) || null;
+  if (!target) await new Promise((resolve) => setTimeout(resolve, 100));
+}
+if (!target?.webSocketDebuggerUrl) {
+  console.error('CDP did not expose a page target.');
+  cleanup();
+  process.exit(1);
+}
+ws = new WebSocket(target.webSocketDebuggerUrl);
+await Promise.race([
+  new Promise((resolve, reject) => {
+    if (ws.readyState === WebSocket.OPEN) return resolve();
+    ws.addEventListener('open', resolve, { once: true });
+    ws.addEventListener('error', () => reject(new Error('CDP websocket failed to open')), { once: true });
+  }),
+  new Promise((_, reject) => setTimeout(() => reject(new Error('CDP websocket open timed out')), 10000)),
+]);
 let msgId = 0;
 const pending = new Map();
 const unexpectedRequests = [];
@@ -78,25 +114,35 @@ ws.addEventListener('message', (ev) => {
     runtimeErrors.push(msg.params.exceptionDetails.text || msg.params.exceptionDetails.exception?.description || 'runtime exception');
   }
   if (msg.id && pending.has(msg.id)) {
-    pending.get(msg.id)(msg);
+    const request = pending.get(msg.id);
+    clearTimeout(request.timer);
     pending.delete(msg.id);
+    if (msg.error) request.reject(new Error(`${request.method}: ${msg.error.message}`));
+    else request.resolve(msg);
   }
 });
 function send(method, params = {}) {
-  return new Promise((resolve) => {
-    const id = ++msgId; pending.set(id, resolve);
+  return new Promise((resolve, reject) => {
+    const id = ++msgId;
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`${method} timed out`));
+    }, 10000);
+    pending.set(id, { resolve, reject, timer, method });
     ws.send(JSON.stringify({ id, method, params }));
   });
 }
-await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 await send('Page.enable');
 await send('Runtime.enable');
 await send('Network.enable');
 
-await send('Page.navigate', { url: portableUrl });
+// The exact portable file target was selected above.
 await new Promise((r) => setTimeout(r, 1800));
 
 const shellExpr = `JSON.stringify({
+  href: location.href,
+  readyState: document.readyState,
+  bodyPreview: document.body?.textContent?.slice(0, 120) || '',
   hasShell: !!document.querySelector('.ledger-shell'),
   hasStepper: !!document.querySelector('.workflow-stepper'),
   title: document.querySelector('.ledger-title')?.textContent || '',
@@ -151,21 +197,19 @@ await send('Runtime.evaluate', {
 });
 await new Promise((resolve) => setTimeout(resolve, 250));
 
-ws.close();
-cp.kill();
+cleanup();
 
 const failures = [];
 const expect = (cond, msg) => { if (!cond) failures.push(msg); };
 
-expect(shell.hasShell, 'shell did not render');
+expect(shell.hasShell, `shell did not render (href=${shell.href}, ready=${shell.readyState}, body="${shell.bodyPreview}")`);
 expect(shell.hasStepper, 'workflow stepper did not render');
-expect(shell.title === 'eMoney Holdings Injector', `title mismatch: "${shell.title}"`);
+expect(shell.title === 'Holdings Entry Assistant', `title mismatch: "${shell.title}"`);
 expect(shell.buildPill.startsWith('Build '), `build pill wrong: "${shell.buildPill}"`);
 expect(shell.buildInfo && shell.buildInfo.sha, 'window.__BUILD_INFO__.sha missing');
 expect(shell.buildInfo && shell.buildInfo.schemaVersion === 'emoney-fill-packet/v1', '__BUILD_INFO__.schemaVersion wrong');
-expect(shell.safetyBadges.includes('LOCAL ONLY'), 'LOCAL ONLY badge missing');
-expect(shell.safetyBadges.includes('NO API'), 'NO API badge missing');
-expect(shell.safetyBadges.includes('NO BACKEND'), 'NO BACKEND badge missing');
+expect(shell.safetyBadges.includes('BROWSER PROCESSING'), 'BROWSER PROCESSING badge missing');
+expect(shell.safetyBadges.includes('NO PROJECT SERVER'), 'NO PROJECT SERVER badge missing');
 expect(shell.safetyBadges.includes('Manual Save in eMoney'), 'Manual Save in eMoney badge missing');
 
 expect(review.activeStep === 'Review Holdings', `active step should be Review Holdings, got "${review.activeStep}"`);

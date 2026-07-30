@@ -176,7 +176,9 @@ test('buildEmoneyDevtoolsSnippet emits eligible rows as paste-ready eMoney fill 
   assert.match(snippet, /marketValue": "3000"/);
   assert.match(snippet, /window\.confirm/);
   assert.match(snippet, /correct eMoney Holdings page for account 123/);
-  assert.match(snippet, /console\.table\(results\)/);
+  assert.doesNotMatch(snippet, /console\.table/);
+  assert.match(snippet, /completedCount/);
+  assert.match(snippet, /failedCount/);
   assert.match(snippet, /Market value not filled; eMoney calculates it/);
   assert.doesNotMatch(snippet, /MarketValueTextBox/);
   assert.doesNotMatch(snippet, /setValue\(fields\.marketValue, row\.marketValue\)/);
@@ -200,14 +202,13 @@ test('bookmark install UI keeps dragged bookmark name clean', () => {
 test('regulated ledger shell renders the demo-ready app identity and safety badges', () => {
   const source = fs.readFileSync('main.ts', 'utf8');
 
-  assert.match(source, /eMoney Holdings Injector/);
-  assert.match(source, /reviewed, human-gated csv/);
-  assert.match(source, /emoney holdings entry/);
+  assert.match(source, /Holdings Entry Assistant/);
+  assert.match(source, /reviewed csv/);
+  assert.match(source, /browser entry/);
   assert.match(source, /Account:/);
   assert.match(source, /Session Active/);
-  assert.match(source, /LOCAL ONLY/);
-  assert.match(source, /NO API/);
-  assert.match(source, /NO BACKEND/);
+  assert.match(source, /BROWSER PROCESSING/);
+  assert.match(source, /NO PROJECT SERVER/);
   assert.match(source, /Manual Save in eMoney/);
 });
 
@@ -218,8 +219,9 @@ test('regulated ledger shell exposes the four-step workflow and trust footer', (
   assert.match(source, /Review Holdings/);
   assert.match(source, /Prepare Fill Packet/);
   assert.match(source, /Fill in eMoney/);
-  assert.match(source, /LOCAL ONLY.*NO API.*NO BACKEND/s);
-  assert.match(source, /Local-only tool.*nothing leaves this machine/);
+  assert.match(source, /BROWSER PROCESSING.*NO PROJECT SERVER/s);
+  assert.match(source, /does not send holdings data to a project server/);
+  assert.match(source, /Use only authorized data/);
   assert.match(source, /Save in eMoney is always manual/);
 });
 

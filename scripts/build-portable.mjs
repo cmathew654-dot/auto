@@ -64,7 +64,7 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="x-build-sha" content="${buildInfo.sha}">
 <meta name="x-built-at" content="${buildInfo.builtAt}">
-<title>Holdings eMoney Assistant</title>
+<title>Holdings Entry Assistant</title>
 </head>
 <body>
 <div id="app"></div>
@@ -75,7 +75,7 @@ HoldingsApp.renderLocalMvpShell(document.getElementById('app'));</script>
 </html>
 `;
 
-const outPath = join(outDir, 'Holdings-eMoney-Assistant.html');
+const outPath = join(outDir, 'Holdings-Entry-Assistant.html');
 writeFileSync(outPath, html, 'utf8');
 
 const totalBytes = Buffer.byteLength(html, 'utf8');
