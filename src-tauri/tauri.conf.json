@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Holdings eMoney Assistant",
+  "productName": "Holdings Entry Assistant",
   "version": "0.1.3",
   "identifier": "com.cmathew654.holdings-emoney-assistant",
   "build": {
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Holdings eMoney Assistant",
+        "title": "Holdings Entry Assistant",
         "width": 1280,
         "height": 860,
         "minWidth": 1040,
@@ -30,8 +30,8 @@
     "active": true,
     "targets": ["nsis"],
     "category": "Business",
-    "shortDescription": "Local holdings review and guided eMoney entry",
-    "longDescription": "Local-only holdings CSV review and human-paste eMoney entry assistant. No backend, no extension, no API, and no auto-save.",
+    "shortDescription": "Holdings CSV review and guided browser entry",
+    "longDescription": "Holdings CSV review and operator-controlled browser entry. No project server and no automatic Save action.",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper"

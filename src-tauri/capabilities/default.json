@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for the local Holdings eMoney Assistant window.",
+  "description": "Default capability for the local Holdings Entry Assistant window.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

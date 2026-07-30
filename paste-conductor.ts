@@ -163,7 +163,7 @@ const EMONEY_FILL_BUTTON_SCRIPT = `(() => {
   const PACKET_MAX_AGE_MS = 8 * 60 * 60 * 1000;
   ${EMONEY_LOCATION_GUARD_SOURCE}
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const state = { packet: null, status: 'idle', busy: false, results: [] };
+  const state = { packet: null, status: 'idle', busy: false, completedCount: 0, failedCount: 0 };
 
   function normalize(value) {
     return String(value || '').trim().toLowerCase();
@@ -402,7 +402,8 @@ const EMONEY_FILL_BUTTON_SCRIPT = `(() => {
       if (!isExpectedEmoneyHoldingsPage()) throw new Error('This does not look like the expected eMoney Holdings page.');
       const duplicate = findDuplicateHolding(state.packet);
       if (duplicate) throw new Error('Possible duplicate existing holding detected for ' + duplicate.ticker + '. No rows were filled.');
-      state.results = [];
+      state.completedCount = 0;
+      state.failedCount = 0;
       for (let i = 0; i < state.packet.holdings.length; i += 1) {
         const row = state.packet.holdings[i];
         state.status = 'Adding row ' + (i + 1) + ' of ' + state.packet.holdings.length + ': ' + row.ticker;
@@ -425,14 +426,14 @@ const EMONEY_FILL_BUTTON_SCRIPT = `(() => {
         if (normalize(fields.ticker.value) !== normalize(row.ticker)) {
           throw new Error('Row ' + (i + 1) + ' (' + row.ticker + ') did not stick after fill (the grid re-rendered mid-row). Stop and enter manually.');
         }
-        state.results.push({ row: i + 1, ticker: row.ticker, status: 'filled' });
+        state.completedCount += 1;
       }
-      state.status = 'Complete: ' + state.results.length + ' rows added to the eMoney entry list. Review every row, then Save in eMoney yourself.';
-      console.table(state.results);
-      console.log('Fill eMoney Holdings complete. Save remains manual.', state.results);
+      state.status = 'Complete: ' + state.completedCount + ' rows added to the eMoney entry list. Review every row, then Save in eMoney yourself.';
+      console.log('Fill eMoney Holdings finished: ' + state.completedCount + ' completed, ' + state.failedCount + ' failed. Save remains manual.');
     } catch (err) {
+      state.failedCount += 1;
       setError(err && err.message ? err.message : String(err));
-      console.error('Fill eMoney Holdings stopped before completion.', err);
+      console.error('Fill eMoney Holdings stopped before completion. Review the visible page and finish manually.');
     } finally {
       state.busy = false;
       updateOverlay();

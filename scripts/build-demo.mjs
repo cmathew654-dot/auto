@@ -48,13 +48,7 @@ writeFileSync(join(outDir, 'index.html'), `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>eMoney Holdings Injector</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <title>Holdings Entry Assistant</title>
   </head>
   <body>
     <div id="app"></div>
@@ -65,5 +59,13 @@ writeFileSync(join(outDir, 'index.html'), `<!doctype html>
   </body>
 </html>
 `);
+
+const originOutDir = join(outDir, 'how-it-started');
+mkdirSync(originOutDir, { recursive: true });
+writeFileSync(
+  join(originOutDir, 'index.html'),
+  readFileSync(join(root, 'portfolio', 'intake-reconstruction.html'), 'utf8'),
+  'utf8'
+);
 
 console.log('Demo build complete: demo-dist/index.html');
