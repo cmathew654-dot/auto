@@ -16,4 +16,4 @@ The questions were deliberately ordinary:
 
 The page opened a prefilled email in the respondent’s mail app. It had no database or submission endpoint. The answers pointed toward the same narrow problem: review the file first, make blocked rows visible, prepare only the fields that should be entered, and keep the final save with the operator.
 
-[Open the reconstructed interview](https://cmathew654-dot.github.io/holdings-entry-assistant/how-it-started/).
+[Open the reconstructed interview](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/how-it-started/).
