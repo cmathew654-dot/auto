@@ -30,8 +30,8 @@ export function installRegulatedLedgerStyles(): void {
       --block-soft: oklch(0.97 0.022 25);
       --block-line: oklch(0.86 0.07 25);
 
-      --sans: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-      --sans-text: Aptos, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+      --sans: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, serif;
+      --sans-text: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, serif;
       --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
 
       --r-sm: 3px;
@@ -55,6 +55,7 @@ export function installRegulatedLedgerStyles(): void {
       --hairline: 0 0 0 1px var(--line);
       --shadow-rest: 0 1px 0 oklch(0.92 0.004 240 / 0.6);
       --shadow-lift: 0 1px 2px rgba(20, 28, 40, 0.06), 0 1px 1px rgba(20, 28, 40, 0.04);
+      --shadow-inset: inset 0 1px 2px rgba(20, 28, 40, 0.16), inset 0 0 0 1px rgba(20, 28, 40, 0.05);
     }
 
     * { box-sizing: border-box; }
@@ -404,7 +405,7 @@ export function installRegulatedLedgerStyles(): void {
       opacity: 1;
       max-height: 42vh;
       overflow-y: auto;
-      transition: opacity 160ms var(--ease);
+      transition: opacity 130ms var(--ease), height 130ms var(--ease);
     }
 
     .ledger-tour-content.is-swapping { opacity: 0; }
@@ -417,8 +418,13 @@ export function installRegulatedLedgerStyles(): void {
     }
 
     .ledger-tour-counter {
+      justify-self: start;
       margin: 0;
+      padding: 4px 9px;
       color: var(--accent);
+      background: var(--surface-recess);
+      border-radius: var(--r-sm);
+      box-shadow: var(--shadow-inset);
       font-family: var(--mono);
       font-size: 10.5px;
       font-weight: 600;
@@ -448,6 +454,7 @@ export function installRegulatedLedgerStyles(): void {
       background: var(--accent-soft);
       border: 1px solid var(--accent-line);
       border-radius: var(--r);
+      box-shadow: var(--shadow-inset);
       color: var(--accent);
       font-weight: 500;
     }

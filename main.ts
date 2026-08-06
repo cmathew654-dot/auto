@@ -204,11 +204,11 @@ function setStatus(el: HTMLElement, message: string, tone: 'info' | 'success' | 
 
 async function stageLoadStatus(status: HTMLElement, sourceName: string): Promise<void> {
   setStatus(status, `Reading ${sourceName} locally...`);
-  await delay(180);
+  await delay(60);
   setStatus(status, 'Parsing holdings and normalizing account rows...');
-  await delay(220);
+  await delay(80);
   setStatus(status, 'Running preflight gates: blocked rows, warnings, export eligibility...');
-  await delay(260);
+  await delay(100);
 }
 
 function summarizeSessionAccount(ingestion: HoldingsIngestionFile): string {
@@ -437,31 +437,51 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   };
 
   // Fade the old stage copy out, swap it, fade the new copy in — a calm
-  // hand-off instead of an instant text swap.
-  const FADE_MS = 160;
-  const swapTourStep = async (step: DemoTourStep, index: number, total: number): Promise<void> => {
+  // hand-off instead of an instant text swap. The dock's height is pinned
+  // to its start value for the fade-out, then animated to its real end
+  // value alongside the fade-in, so the dock never jump-cuts to the new
+  // copy's height (that jump was reading as a flicker/glitch).
+  const FADE_MS = 130;
+  const fadeSwapContent = async (render: () => void): Promise<void> => {
     if (reduceMotion()) {
-      renderTourStep(step, index, total);
+      render();
       return;
     }
+    const startHeight = tourContent.getBoundingClientRect().height;
+    tourContent.style.height = `${startHeight}px`;
     tourContent.classList.add('is-swapping');
     await wait(FADE_MS);
-    renderTourStep(step, index, total);
-    void tourContent.offsetHeight; // force layout so the fade-in transition runs
+    render();
+    const endHeight = Math.min(tourContent.scrollHeight, window.innerHeight * 0.42);
+    void tourContent.offsetHeight; // force layout so both height and fade-in transitions animate from their real starting values, not mid-flight
+    tourContent.style.height = `${endHeight}px`;
     tourContent.classList.remove('is-swapping');
     await wait(FADE_MS);
+    tourContent.style.height = ''; // release back to the CSS max-height clamp
   };
+  const swapTourStep = (step: DemoTourStep, index: number, total: number): Promise<void> =>
+    fadeSwapContent(() => renderTourStep(step, index, total));
 
   // Named, honest steps typed out one character at a time, like a terminal
   // transcript -- the labor illusion: visibly showing real work builds
   // trust and gives the eye time to orient. A 4-item list runs roughly
   // 4-7s end to end; that pace is intentional. Collapses to the finished
   // transcript instantly under prefers-reduced-motion.
-  const TYPE_CHAR_MS = 22;
-  const TYPE_LINE_PAUSE_MS = 400;
-  const TYPE_NEXT_LINE_GAP_MS = 300;
-  const runWorkingSequence = async (workSteps: string[]): Promise<void> => {
+  const TYPE_CHAR_MS = 11;
+  const TYPE_LINE_PAUSE_MS = 160;
+  const TYPE_NEXT_LINE_GAP_MS = 110;
+  // keepVisible: the closing beat's transcript IS the session report (item
+  // 6) -- it must stay on screen once typed, framed by the closing title/
+  // body/proof, rather than typing in and then vanishing before the visitor
+  // ever presses the button that claims to "close" it.
+  const runWorkingSequence = async (workSteps: string[], options?: { keepVisible?: boolean }): Promise<void> => {
     if (workSteps.length === 0) return;
+    const keepVisible = options?.keepVisible ?? false;
+    // A persistent report needs a shorter clamp than a transient stage's
+    // copy -- it stays on screen indefinitely, so it must leave enough
+    // band above the dock for the closing subject to fit without overlap.
+    // Scrolls internally past this cap; nothing in the report is lost.
+    tourContent.style.maxHeight = keepVisible ? '22vh' : '';
     tourTitle.hidden = true;
     tourBody.hidden = true;
     tourProof.hidden = true;
@@ -475,7 +495,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         li.textContent = text;
         tourWork.appendChild(li);
       });
-      tourWork.hidden = true;
+      tourWork.hidden = keepVisible ? false : true;
       tourTitle.hidden = false;
       tourBody.hidden = false;
       tourProof.hidden = false;
@@ -507,8 +527,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         await wait(TYPE_NEXT_LINE_GAP_MS);
       }
     }
-    await wait(120);
-    tourWork.hidden = true;
+    await wait(60);
+    tourWork.hidden = keepVisible ? false : true;
     tourTitle.hidden = false;
     tourBody.hidden = false;
     tourProof.hidden = false;
@@ -545,7 +565,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       overrides?.dockTop ?? (tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top);
     const subjectHeight = overrides?.subjectHeight ?? rect.height;
     const bandTop = headerBottom + 16;
-    const bandBottom = Math.max(bandTop + 1, dockTop - 16);
+    const bandBottom = Math.max(bandTop + 1, dockTop - 24);
     const bandHeight = bandBottom - bandTop;
     // Center with a low bias, but never let that bias push the bottom edge
     // under the dock (clamped first) or the top edge under the header
@@ -996,23 +1016,29 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
         const renderClosingCopy = (): void => {
           tourCounter.textContent = 'Session complete';
-          tourTitle.textContent = 'That was the full walkthrough';
+          tourTitle.textContent = 'Session report';
           tourBody.textContent = 'Here is everything that just happened, held rows included.';
-          tourProof.textContent = 'The demo is over — everything above is now yours to explore freely.';
+          tourProof.textContent = 'The report below stays on screen -- everything else is now yours to explore freely.';
           tourNextButton.textContent = 'Explore the full session';
         };
-        if (reduceMotion()) {
-          renderClosingCopy();
-        } else {
-          tourContent.classList.add('is-swapping');
-          await wait(FADE_MS);
-          renderClosingCopy();
-          void tourContent.offsetHeight;
-          tourContent.classList.remove('is-swapping');
-          await wait(FADE_MS);
-        }
+        await fadeSwapContent(renderClosingCopy);
 
-        await runWorkingSequence(closingLines);
+        // keepVisible: this transcript IS the session report named by the
+        // "Close the report" button below -- it must still be on screen
+        // when that button appears (item 6).
+        await runWorkingSequence(closingLines, { keepVisible: true });
+
+        // The persistent report (keepVisible) makes the dock taller than
+        // the scroll above accounted for -- re-check and correct overlap,
+        // same safety net advanceTour uses for regular stages.
+        {
+          const dockTopFinal = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
+          const overlap = closingSubject.getBoundingClientRect().bottom - (dockTopFinal - 24);
+          if (overlap > 0) {
+            await scrollSubjectIntoView(closingSubject);
+            updateTourDockSpacing(true);
+          }
+        }
 
         tourRunAgainButton.hidden = false;
         tourNextButton.disabled = false;
@@ -1135,7 +1161,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         // dock is genuinely covering the subject and must be corrected.
         {
           const dockTopFinal = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
-          const overlap = subject.getBoundingClientRect().bottom - (dockTopFinal - 16);
+          const overlap = subject.getBoundingClientRect().bottom - (dockTopFinal - 24);
           // The second, visible camera move that read as zoom/drift on
           // stage 5 only happens when clearance is genuinely negative --
           // any positive overlap means the dock is covering the subject,
