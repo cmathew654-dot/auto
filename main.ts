@@ -18,6 +18,8 @@ import type { HoldingsIngestionFile } from './holdings-schema';
 import { installRegulatedLedgerStyles } from './ledger-styles';
 import { clearMatchingClipboard, renderReviewExportSurface } from './review-export-surface';
 import { DEMO_SAMPLE_CSV } from './demo-sample';
+import { renderDemoDestinationPanel } from './demo-destination-panel';
+import { runDemoFill, type EmoneyFillPacket } from './paste-conductor';
 
 export const SAMPLE_CSV_INPUT = DEMO_SAMPLE_CSV;
 
@@ -27,6 +29,7 @@ interface LocalMvpOptions {
   sourceFilename?: string;
   onPacketPrepared?: (event: { accountNumber: string; rowCount: number; copied: boolean }) => void;
   onClipboardWrite?: (text: string) => void;
+  onFillPacketReady?: (packet: EmoneyFillPacket | null) => void;
 }
 
 export function runLocalMvp(
@@ -42,6 +45,7 @@ export function runLocalMvp(
   renderReviewExportSurface(container, ingestionFile, {
     onPacketPrepared: opts?.onPacketPrepared,
     onClipboardWrite: opts?.onClipboardWrite,
+    onFillPacketReady: opts?.onFillPacketReady,
   });
 
   return ingestionFile;
@@ -113,7 +117,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const badges = document.createElement('div');
   badges.className = 'ledger-safety-badges';
-  ['BROWSER PROCESSING', 'NO PROJECT SERVER', 'Manual Save in eMoney'].forEach((label) => {
+  ['BROWSER PROCESSING', 'NO PROJECT SERVER', 'Manual Save in eMoney', 'SYNTHETIC DEMO DATA'].forEach((label) => {
     const badge = document.createElement('span');
     badge.textContent = label;
     badges.appendChild(badge);
@@ -199,7 +203,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const sampleButton = document.createElement('button');
   sampleButton.type = 'button';
-  sampleButton.textContent = 'Load demo sample';
+  sampleButton.textContent = 'Run the full demo';
   sampleButton.className = 'ledger-button full-width';
   actions.appendChild(sampleButton);
 
@@ -234,6 +238,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     ['Storage', 'No auto-save'],
     ['Network', 'No project server'],
     ['eMoney Save', 'Manual'],
+    ['Demo data', 'Synthetic only'],
   ].forEach(([label, value]) => {
     const check = document.createElement('div');
     check.className = 'ledger-check';
@@ -249,18 +254,51 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   reviewRoot.id = 'review-root';
   shell.appendChild(reviewRoot);
 
+  const destinationRoot = document.createElement('section');
+  destinationRoot.id = 'demo-destination-root';
+  destinationRoot.className = 'ledger-panel';
+  destinationRoot.hidden = true;
+  shell.appendChild(destinationRoot);
+
+  const destinationHeader = document.createElement('div');
+  destinationHeader.className = 'demo-destination-header';
+  const fillButton = document.createElement('button');
+  fillButton.type = 'button';
+  fillButton.textContent = 'Fill the simulated destination page';
+  fillButton.className = 'ledger-button full-width';
+  fillButton.disabled = true;
+  destinationHeader.appendChild(fillButton);
+  const withheldLine = document.createElement('p');
+  withheldLine.className = 'ledger-status-line';
+  destinationHeader.appendChild(withheldLine);
+  destinationRoot.appendChild(destinationHeader);
+
+  const destinationPanelHost = document.createElement('div');
+  destinationRoot.appendChild(destinationPanelHost);
+
   const footer = document.createElement('footer');
   footer.className = 'ledger-footer';
   footer.innerHTML = [
     '<strong>BROWSER PROCESSING <span aria-hidden="true">&bull;</span> NO PROJECT SERVER</strong>',
     '<span>The current build does not send holdings data to a project server. Use only authorized data. Save in eMoney is always manual.</span>',
+    '<span>The demo sample above is fabricated data; saving in the real system is always a manual operator click.</span>',
   ].join('');
   shell.appendChild(footer);
 
   let lastCopiedText: string | null = null;
+  let latestPacket: EmoneyFillPacket | null = null;
+  let demoPanel: ReturnType<typeof renderDemoDestinationPanel> | null = null;
 
   const trackClipboardWrite = (text: string) => {
     lastCopiedText = text;
+  };
+
+  const hideDestinationPanel = () => {
+    destinationRoot.hidden = true;
+    latestPacket = null;
+    fillButton.disabled = true;
+    withheldLine.textContent = '';
+    demoPanel?.reset();
   };
 
   const markSessionActive = (ingestion: HoldingsIngestionFile) => {
@@ -298,8 +336,30 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     if (file) void loadCsvFile(file);
   };
 
+  fillButton.onclick = async () => {
+    if (!latestPacket || !demoPanel) return;
+    const packet = latestPacket;
+    fillButton.disabled = true;
+    setStatus(status, 'Filling the simulated destination page...');
+    try {
+      await runDemoFill(demoPanel.root, packet, {
+        onRow: (row) => setStatus(status, `Filled row ${row.rowNumber}: ${row.ticker}`),
+      });
+      setStatus(
+        status,
+        `${packet.rowCount} eligible rows filled. ${packet.blockedCount} blocked rows were withheld.`,
+        'success'
+      );
+    } catch (err) {
+      setStatus(status, err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      fillButton.disabled = false;
+    }
+  };
+
   sampleButton.onclick = async () => {
     try {
+      hideDestinationPanel();
       setWorkflowStep('load');
       renderLedgerSkeleton(reviewRoot, 'demo-sample.csv');
       await stageLoadStatus(status, 'demo-sample.csv');
@@ -307,6 +367,19 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         sourceFilename: 'demo-sample.csv',
         onPacketPrepared: (event) => setWorkflowStep(event.copied ? 'fill' : 'packet'),
         onClipboardWrite: trackClipboardWrite,
+        onFillPacketReady: (packet) => {
+          latestPacket = packet;
+          fillButton.disabled = !packet;
+          if (!packet) return;
+
+          setWorkflowStep('packet');
+          withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row(s) that failed review.`;
+          destinationRoot.hidden = false;
+          if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
+          else demoPanel.reset();
+          setWorkflowStep('fill');
+          destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
       });
       markSessionActive(ingestion);
       setWorkflowStep('review');
@@ -323,6 +396,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     reviewRoot.className = '';
     fileInput.value = '';
     lastCopiedText = null;
+    hideDestinationPanel();
     session.innerHTML = 'Account: Not loaded <span aria-hidden="true">&bull;</span> Session Idle <i aria-hidden="true"></i>';
     session.classList.remove('is-active');
     clearSessionButton.disabled = true;
