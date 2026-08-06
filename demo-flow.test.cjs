@@ -76,7 +76,11 @@ test('the guided tour walks load -> review -> packet -> one fill per account, in
   const accounts = buildDemoTourAccounts();
   const steps = buildDemoTourSteps(accounts);
 
-  assert.deepEqual(steps.map((s) => s.stage), ['load', 'review', 'packet', 'fill', 'fill']);
+  // Accounts with holds get their own standalone "what's held back" beat
+  // ahead of the fill step, so the step count grows with holds, not just
+  // with account count.
+  const expectedStages = ['load', 'review', 'packet', ...accounts.flatMap((a) => (a.withheldCount > 0 ? ['fill', 'fill'] : ['fill']))];
+  assert.deepEqual(steps.map((s) => s.stage), expectedStages);
   assert.deepEqual(
     steps.filter((s) => s.fillAccountNumber).map((s) => s.fillAccountNumber),
     accounts.map((a) => a.accountNumber)
@@ -86,6 +90,14 @@ test('the guided tour walks load -> review -> packet -> one fill per account, in
     accounts.length,
     'exactly one fill step per account'
   );
+  accounts
+    .filter((a) => a.withheldCount > 0)
+    .forEach((a) => {
+      const holdsIndex = steps.findIndex((s) => s.holdsForAccount === a.accountNumber);
+      const fillIndex = steps.findIndex((s) => s.fillAccountNumber === a.accountNumber);
+      assert.ok(holdsIndex >= 0, `account ${a.accountNumber} with holds must get its own holds beat`);
+      assert.ok(holdsIndex < fillIndex, `the holds beat for ${a.accountNumber} must come before its fill step`);
+    });
 });
 
 test('every tour step has non-empty copy, and only the last step reads Done', () => {

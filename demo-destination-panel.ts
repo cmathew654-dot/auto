@@ -117,6 +117,9 @@ function installDemoDestinationStyles(): void {
       background: #ffffff;
       border: 1px solid #c4c4cb;
       border-radius: 4px;
+      /* Rows landing here must never trigger the browser's own scroll
+         anchoring -- the tour drives every scroll deliberately. */
+      overflow-anchor: none;
     }
 
     .demo-dest-table {
@@ -143,7 +146,7 @@ function installDemoDestinationStyles(): void {
     /* Each landed row fades and slides in so a fill visibly populates the
        table row by row, instead of appearing already-finished. */
     .demo-dest-table tbody tr {
-      animation: demoDestRowIn 320ms cubic-bezier(0.22, 1, 0.36, 1);
+      animation: demoDestRowIn 400ms cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     @keyframes demoDestRowIn {

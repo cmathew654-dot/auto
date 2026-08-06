@@ -490,11 +490,52 @@ export function installRegulatedLedgerStyles(): void {
       background: var(--accent);
     }
 
+    /* Terminal-transcript typing: a blinking block cursor while a line is
+       being typed, and a checkmark that replaces the pending dot once the
+       line is fully typed and its pause has elapsed. */
+    .ledger-tour-work-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 1em;
+      margin-left: 1px;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      animation: tourCursorBlink 900ms steps(1) infinite;
+    }
+
+    @keyframes tourCursorBlink {
+      50% { opacity: 0; }
+    }
+
+    .ledger-tour-work li.is-done::before {
+      content: "✓";
+      width: auto;
+      height: auto;
+      background: none;
+      color: var(--ok);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
     /* ── Tour held-row callout ────────────────────────────────────────── */
 
     .tour-held-row td {
       background: var(--block-soft);
       transition: background var(--motion);
+    }
+
+    /* Destination panel's own slow entrance, played once the first time it
+       appears -- opacity/transform only, so it never affects the layout
+       used to compute the scroll target. */
+    #demo-destination-root {
+      opacity: 1;
+      transform: none;
+      transition: opacity 750ms var(--ease), transform 750ms var(--ease);
+    }
+
+    #demo-destination-root.is-pre-reveal {
+      opacity: 0;
+      transform: translateY(24px);
     }
 
     /* ── Panels ───────────────────────────────────────────────────────── */
@@ -711,6 +752,8 @@ export function installRegulatedLedgerStyles(): void {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+
+    .ledger-button[hidden] { display: none; }
 
     .ledger-button.secondary {
       background: var(--surface);

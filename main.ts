@@ -40,8 +40,10 @@ export interface DemoTourStep {
   proof: string;            // what it proves
   nextLabel: string;        // Next button text; last step reads "Done"
   fillAccountNumber?: string; // when set, advancing INTO this step fills that account first
+  holdsForAccount?: string;   // when set, this step narrates that account's held-back rows -- a
+                               // standalone beat with its own Next click, ahead of that account's
+                               // fill step, instead of an automatic detour inside one step
   workSteps: string[];      // named, real pipeline steps ticked through before the payoff
-  holdsPreview?: { title: string; body: string; proof: string }; // shown before a fill with holds
 }
 
 // Pure step model for the click-through guided tour. No DOM, no timers, no
@@ -112,6 +114,24 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
           "Matching packet rows to the destination page's fields",
           'Copying only ticker, units, and cost basis for each eligible row',
         ];
+
+    // A standalone beat, with its own Next click, before an account with
+    // holds ever scrolls to its destination panel -- so the visitor is
+    // never whipped up to the held rows and back down to the panel inside
+    // a single, un-pauseable step.
+    if (!clean) {
+      steps.push({
+        id: `holds-${account.accountNumber}`,
+        stage: 'fill',
+        title: `First: the ${account.withheldCount} row(s) that don't go`,
+        body: `Account ${account.accountNumber} is holding back ${account.withheldCount} of ${account.totalRows} rows before anything reaches the destination page — some need a manual-review override, and some (like a cash row with no ticker or CUSIP) can never be auto-entered.`,
+        proof: 'Every blocked row stays visible with its reason. Nothing here is hidden, only withheld.',
+        nextLabel: 'Next: watch the rest land',
+        holdsForAccount: account.accountNumber,
+        workSteps: [],
+      });
+    }
+
     steps.push({
       id: `fill-${account.accountNumber}`,
       stage: 'fill',
@@ -123,13 +143,6 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       nextLabel: isLast ? 'Done' : 'Next: fill the next account',
       fillAccountNumber: account.accountNumber,
       workSteps: fillWorkSteps,
-      holdsPreview: clean
-        ? undefined
-        : {
-            title: `First: the ${account.withheldCount} row(s) that don't go`,
-            body: `Account ${account.accountNumber} is holding back ${account.withheldCount} of ${account.totalRows} rows before anything reaches the destination page — some need a manual-review override, and some (like a cash row with no ticker or CUSIP) can never be auto-entered.`,
-            proof: 'Every blocked row stays visible with its reason. Nothing here is hidden, only withheld.',
-          },
     });
   });
 
@@ -382,10 +395,15 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   tourWork.className = 'ledger-tour-work';
   tourWork.hidden = true;
   tourContent.append(tourCounter, tourTitle, tourBody, tourProof, tourWork);
+  const tourRunAgainButton = document.createElement('button');
+  tourRunAgainButton.type = 'button';
+  tourRunAgainButton.className = 'ledger-button secondary';
+  tourRunAgainButton.textContent = 'Run it again';
+  tourRunAgainButton.hidden = true;
   const tourNextButton = document.createElement('button');
   tourNextButton.type = 'button';
   tourNextButton.className = 'ledger-button';
-  tourCard.append(tourContent, tourNextButton);
+  tourCard.append(tourContent, tourRunAgainButton, tourNextButton);
   shell.appendChild(tourCard);
 
   const reduceMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -416,77 +434,116 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     await wait(FADE_MS);
   };
 
-  // Named, honest steps ticking in before a stage's payoff -- the labor
-  // illusion: visibly showing real work builds trust and gives the eye
-  // time to orient. Collapses instantly under prefers-reduced-motion.
-  const WORK_STAGGER_MS = 150;
+  // Named, honest steps typed out one character at a time, like a terminal
+  // transcript -- the labor illusion: visibly showing real work builds
+  // trust and gives the eye time to orient. A 4-item list runs roughly
+  // 4-7s end to end; that pace is intentional. Collapses to the finished
+  // transcript instantly under prefers-reduced-motion.
+  const TYPE_CHAR_MS = 22;
+  const TYPE_LINE_PAUSE_MS = 400;
+  const TYPE_NEXT_LINE_GAP_MS = 300;
   const runWorkingSequence = async (workSteps: string[]): Promise<void> => {
-    if (workSteps.length === 0 || reduceMotion()) return;
+    if (workSteps.length === 0) return;
     tourTitle.hidden = true;
     tourBody.hidden = true;
     tourProof.hidden = true;
     tourWork.innerHTML = '';
     tourWork.hidden = false;
-    const items = workSteps.map((text) => {
-      const li = document.createElement('li');
-      li.textContent = text;
-      tourWork.appendChild(li);
-      return li;
-    });
-    for (const li of items) {
-      li.classList.add('is-active');
-      await wait(WORK_STAGGER_MS);
+
+    if (reduceMotion()) {
+      workSteps.forEach((text) => {
+        const li = document.createElement('li');
+        li.className = 'is-active is-done';
+        li.textContent = text;
+        tourWork.appendChild(li);
+      });
+      tourWork.hidden = true;
+      tourTitle.hidden = false;
+      tourBody.hidden = false;
+      tourProof.hidden = false;
+      return;
     }
-    await wait(Math.max(400, 1300 - workSteps.length * WORK_STAGGER_MS));
+
+    for (const text of workSteps) {
+      const li = document.createElement('li');
+      li.classList.add('is-active');
+      const textSpan = document.createElement('span');
+      textSpan.className = 'ledger-tour-work-text';
+      const cursor = document.createElement('span');
+      cursor.className = 'ledger-tour-work-cursor';
+      li.append(textSpan, cursor);
+      tourWork.appendChild(li);
+      for (let i = 1; i <= text.length; i += 1) {
+        textSpan.textContent = text.slice(0, i);
+        await wait(TYPE_CHAR_MS);
+      }
+      await wait(TYPE_LINE_PAUSE_MS);
+      cursor.remove();
+      li.classList.add('is-done');
+      await wait(TYPE_NEXT_LINE_GAP_MS);
+    }
+    await wait(300);
     tourWork.hidden = true;
     tourTitle.hidden = false;
     tourBody.hidden = false;
     tourProof.hidden = false;
   };
 
-  // A brief, deliberate detour in the dock's copy -- narrates the
-  // held-rows beat before the tour returns to the step's own copy.
-  const showDockMessage = async (msg: { title: string; body: string; proof: string }): Promise<void> => {
-    if (reduceMotion()) {
-      tourTitle.textContent = msg.title;
-      tourBody.textContent = msg.body;
-      tourProof.textContent = msg.proof;
-      return;
-    }
-    tourContent.classList.add('is-swapping');
-    await wait(FADE_MS);
-    tourTitle.textContent = msg.title;
-    tourBody.textContent = msg.body;
-    tourProof.textContent = msg.proof;
-    void tourContent.offsetHeight;
-    tourContent.classList.remove('is-swapping');
-    await wait(FADE_MS);
-  };
-
   // One deliberate, unhurried scroll instead of the browser's native
   // smooth-scroll (which snaps hard over long distances). Distance is kept
   // short in the first place by applyStageFocus hiding everything that
-  // isn't this stage's subject.
-  const SCROLL_MS = 700;
-  const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  // isn't this stage's subject. Longer moves get a longer, softer glide;
+  // every move ends with a settle beat baked in so nothing else may start
+  // while the camera is still coming to rest.
+  const SCROLL_MIN_MS = 950;
+  const SCROLL_LONG_MS = 1650;
+  const SCROLL_LONG_THRESHOLD_PX = 400;
+  const SCROLL_SETTLE_MS = 500;
+  const easeOutQuart = (t: number): number => 1 - (1 - t) ** 4;
+
+  // Centers the subject in the usable band between the app header and the
+  // fixed dock (not the raw viewport), biased slightly low per feedback
+  // that centered content read as sitting too high.
+  const scrollTargetForSubject = (subject: HTMLElement): number => {
+    const rect = subject.getBoundingClientRect();
+    const headerBottom = Math.max(0, appHeader.getBoundingClientRect().bottom);
+    const dockTop = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
+    const bandTop = headerBottom + 16;
+    const bandBottom = Math.max(bandTop + 1, dockTop - 16);
+    const bandHeight = bandBottom - bandTop;
+    // Center with a low bias, but never let that bias push the bottom edge
+    // under the dock (clamped first) or the top edge under the header
+    // (clamped second, so header clearance always wins for oversized
+    // subjects that can't fit the band at all).
+    let idealTop = bandTop + bandHeight * 0.55 - rect.height / 2;
+    idealTop = Math.min(idealTop, bandBottom - rect.height);
+    idealTop = Math.max(idealTop, bandTop);
+    const delta = rect.top - idealTop;
+    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    return Math.max(0, Math.min(maxY, window.scrollY + delta));
+  };
+
   let lastScrollDistance = 0;
   const scrollSubjectIntoView = (subject: HTMLElement): Promise<void> => {
     const startY = window.scrollY;
-    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-    const targetY = Math.max(0, Math.min(maxY, startY + subject.getBoundingClientRect().top - 16));
+    const targetY = scrollTargetForSubject(subject);
     lastScrollDistance = Math.abs(targetY - startY);
     if (reduceMotion() || lastScrollDistance < 2) {
       window.scrollTo(0, targetY);
       return Promise.resolve();
     }
+    const duration = lastScrollDistance > SCROLL_LONG_THRESHOLD_PX ? SCROLL_LONG_MS : SCROLL_MIN_MS;
     return new Promise((resolve) => {
       const delta = targetY - startY;
       const start = performance.now();
       const step = (now: number) => {
-        const t = Math.min(1, (now - start) / SCROLL_MS);
-        window.scrollTo(0, startY + delta * easeInOutCubic(t));
-        if (t < 1) requestAnimationFrame(step);
-        else resolve();
+        const t = Math.min(1, (now - start) / duration);
+        window.scrollTo(0, startY + delta * easeOutQuart(t));
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          wait(SCROLL_SETTLE_MS).then(resolve);
+        }
       };
       requestAnimationFrame(step);
     });
@@ -524,6 +581,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   // Keep consecutive stages physically close together: hide every section
   // that isn't this stage's subject instead of leaving a 4000px page for
   // the visitor to be flown across.
+  const stepAccountNumber = (step: DemoTourStep): string | undefined => step.fillAccountNumber ?? step.holdsForAccount;
+
   const applyStageFocus = (step: DemoTourStep): void => {
     controls.hidden = step.stage !== 'load';
     Array.from(reviewRoot.querySelectorAll<HTMLElement>('.account-panel')).forEach((panel, index) => {
@@ -532,7 +591,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       } else if (step.stage === 'packet') {
         panel.hidden = index !== 0;
       } else if (step.stage === 'fill') {
-        panel.hidden = !panel.querySelector('h3')?.textContent?.startsWith(step.fillAccountNumber ?? '\0');
+        panel.hidden = !panel.querySelector('h3')?.textContent?.startsWith(stepAccountNumber(step) ?? '\0');
       } else {
         panel.hidden = true;
       }
@@ -574,6 +633,10 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   let latestPacket: EmoneyFillPacket | null = null;
   let demoPanel: ReturnType<typeof renderDemoDestinationPanel> | null = null;
   const packetsByAccount = new Map<string, EmoneyFillPacket>();
+  // Tracks whether the destination panel's slow entrance has already played
+  // this run -- it plays once, the first time the panel appears, not on
+  // every subsequent account's fill.
+  let panelRevealed = false;
 
   const trackClipboardWrite = (text: string) => {
     lastCopiedText = text;
@@ -581,12 +644,15 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const hideDestinationPanel = () => {
     destinationRoot.hidden = true;
+    destinationRoot.classList.remove('is-pre-reveal');
+    panelRevealed = false;
     latestPacket = null;
     fillButton.disabled = true;
     withheldLine.textContent = '';
     demoPanel?.reset();
     packetsByAccount.clear();
     tourCard.hidden = true;
+    tourRunAgainButton.hidden = true;
     setHighlightedSubject(null);
     updateTourDockSpacing();
     landingCopy.hidden = false;
@@ -612,6 +678,15 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       case 'packet':
         return reviewRoot.querySelector<HTMLElement>('.transfer-rail') ?? reviewRoot;
       case 'fill':
+        if (step.holdsForAccount) {
+          return (
+            reviewRoot.querySelector<HTMLElement>('.account-panel:not([hidden]) .row-blocked')?.closest<HTMLElement>(
+              '.holdings-table-wrap'
+            ) ??
+            reviewRoot.querySelector<HTMLElement>('.account-panel:not([hidden]) .holdings-table-wrap') ??
+            reviewRoot
+          );
+        }
         return demoPanel?.root.querySelector<HTMLElement>('.demo-dest-table-wrap') ?? destinationRoot;
     }
   };
@@ -621,9 +696,9 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     demoPanel.reset(); // idempotent fill: never append onto a prior fill's rows
     await runDemoFill(demoPanel.root, packet, {
       onRow: (row) => setStatus(status, `Filled row ${row.rowNumber}: ${row.ticker}`),
-      // Visible, staggered landing (~130ms/row) so the viewer watches rows
-      // appear one at a time instead of finding the table already full.
-      stepDelayMs: reduceMotion() ? 0 : 130,
+      // Visible, staggered landing (250-350ms/row) so each row is
+      // individually watchable instead of the table appearing already full.
+      stepDelayMs: reduceMotion() ? 0 : 300,
     });
   };
 
@@ -685,7 +760,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   let tourNext: () => void = () => {};
   tourNextButton.onclick = () => tourNext();
 
-  sampleButton.onclick = async () => {
+  const startDemoTour = async (): Promise<void> => {
     try {
       hideDestinationPanel();
       tourIndex = -1;
@@ -725,37 +800,122 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       landingCopy.hidden = true;
       shell.classList.add('tour-active');
 
+      // Rows marked as "held" for the callout in a holds beat -- cleared at
+      // the top of every subsequent advance so the callout never lingers
+      // past the step that narrated it.
+      let markedHeldRows: HTMLElement[] = [];
+
+      // The tour's own closing beat: a deliberate arrival (not wherever the
+      // last stage happened to leave the scroll), a typed recap in the same
+      // transcript voice as the stages, and an explicit affordance instead
+      // of the dock simply vanishing.
+      const runClosingBeat = async (): Promise<void> => {
+        tourNextButton.disabled = true;
+
+        // Reveal the sections the tour folded away, but hold the visual
+        // scroll position steady while they reflow in -- revealing must
+        // never itself move the camera. Only after a settle beat does the
+        // camera make its own, separate, deliberate move.
+        const scrollYBeforeReveal = window.scrollY;
+        const heightBeforeReveal = document.documentElement.scrollHeight;
+        markedHeldRows.forEach((row) => row.classList.remove('tour-held-row'));
+        markedHeldRows = [];
+        setHighlightedSubject(null);
+        controls.hidden = false;
+        reviewRoot.querySelectorAll<HTMLElement>('.account-panel').forEach((panel) => {
+          panel.hidden = false;
+        });
+        updateTourDockSpacing();
+        const revealedHeight = Math.max(0, document.documentElement.scrollHeight - heightBeforeReveal);
+        if (revealedHeight > 0) window.scrollTo(0, scrollYBeforeReveal + revealedHeight);
+        await wait(reduceMotion() ? 0 : 500);
+
+        // Land somewhere deliberate: the review table, where every verdict
+        // -- including the held rows -- is legible with its own reason
+        // chip. That is the product's whole value, so it reads as the
+        // punchline here, not as breakage.
+        const closingSubject =
+          reviewRoot.querySelector<HTMLElement>('.account-panel .row-blocked')?.closest<HTMLElement>(
+            '.holdings-table-wrap'
+          ) ??
+          reviewRoot.querySelector<HTMLElement>('.holdings-table-wrap') ??
+          reviewRoot;
+        await scrollSubjectIntoView(closingSubject);
+        updateTourDockSpacing(true);
+        setHighlightedSubject(closingSubject);
+
+        const totalRows = tourAccounts.reduce((sum, a) => sum + a.totalRows, 0);
+        const totalEligible = tourAccounts.reduce((sum, a) => sum + a.eligibleCount, 0);
+        const totalWithheld = tourAccounts.reduce((sum, a) => sum + a.withheldCount, 0);
+        const closingLines = [
+          `${totalRows} row(s) processed across ${tourAccounts.length} account(s)`,
+          `${totalEligible} row(s) landed on the destination panel`,
+          `${totalWithheld} row(s) held back for manual review or a missing lookup key`,
+          'Browser-only processing -- no project server, no auto-save',
+          'Real market symbols, fabricated accounts and positions -- Save is always a manual operator click',
+        ];
+
+        const renderClosingCopy = (): void => {
+          tourCounter.textContent = 'Session complete';
+          tourTitle.textContent = 'That was the full walkthrough';
+          tourBody.textContent = 'Here is everything that just happened, held rows included.';
+          tourProof.textContent = 'The demo is over — everything above is now yours to explore freely.';
+          tourNextButton.textContent = 'Explore the full session';
+        };
+        if (reduceMotion()) {
+          renderClosingCopy();
+        } else {
+          tourContent.classList.add('is-swapping');
+          await wait(FADE_MS);
+          renderClosingCopy();
+          void tourContent.offsetHeight;
+          tourContent.classList.remove('is-swapping');
+          await wait(FADE_MS);
+        }
+
+        await runWorkingSequence(closingLines);
+
+        tourRunAgainButton.hidden = false;
+        tourNextButton.disabled = false;
+        tourNext = () => {
+          tourCard.hidden = true;
+          tourRunAgainButton.hidden = true;
+          setHighlightedSubject(null);
+          updateTourDockSpacing();
+          shell.classList.remove('tour-active');
+        };
+      };
+
       // Single writer for the remaining stages: the visitor advances one
       // step at a time via Next (see advanceTour) — nothing after this may
       // touch setWorkflowStep for this run.
       const advanceTour = async (): Promise<void> => {
         tourIndex += 1;
         if (tourIndex >= steps.length) {
-          // Tour finished ("Done"): restore full free browsing — nothing
-          // stays collapsed just because the guided walkthrough is over.
-          tourCard.hidden = true;
-          setHighlightedSubject(null);
-          updateTourDockSpacing();
-          shell.classList.remove('tour-active');
-          controls.hidden = false;
-          reviewRoot.querySelectorAll<HTMLElement>('.account-panel').forEach((panel) => {
-            panel.hidden = false;
-          });
+          await runClosingBeat();
           return;
         }
         const step = steps[tourIndex];
         tourNextButton.disabled = true;
         setWorkflowStep(step.stage);
 
+        // Clear the previous step's held-row callout before this step's
+        // own focus takes over.
+        markedHeldRows.forEach((row) => row.classList.remove('tour-held-row'));
+        markedHeldRows = [];
+
         // Prep any DOM the step needs BEFORE anything scrolls, so the
         // scroll settles against the final layout -- and leave the
         // destination panel empty so nothing fills until the scroll has
         // fully settled (a fill racing the scroll is what caused the old
-        // clip-then-correct jump).
+        // clip-then-correct jump). The panel's own slow entrance plays once,
+        // after the scroll settles -- never during the camera move.
+        const isFirstPanelReveal = Boolean(step.fillAccountNumber) && !panelRevealed;
         if (step.fillAccountNumber) {
           destinationRoot.hidden = false;
           if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
           demoPanel.reset();
+          if (isFirstPanelReveal) destinationRoot.classList.add('is-pre-reveal');
         }
         // One movement at a time: focus the layout on this stage's subject,
         // settle a single deliberate scroll, THEN highlight, THEN swap the
@@ -767,32 +927,21 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         updateTourDockSpacing(true);
         setHighlightedSubject(subject);
 
-        await runWorkingSequence(step.workSteps);
-
-        if (step.fillAccountNumber && step.holdsPreview) {
-          // Beat 1 of 2: show what's being withheld, and why, before showing what lands.
-          const heldRows = Array.from(
+        if (step.holdsForAccount) {
+          markedHeldRows = Array.from(
             reviewRoot.querySelectorAll<HTMLElement>('.account-panel:not([hidden]) .row-blocked')
           );
-          const holdsSubject =
-            heldRows[0]?.closest<HTMLElement>('.holdings-table-wrap') ??
-            reviewRoot.querySelector<HTMLElement>('.account-panel:not([hidden]) .holdings-table-wrap') ??
-            reviewRoot;
-          updateTourDockSpacing();
-          await scrollSubjectIntoView(holdsSubject);
-          updateTourDockSpacing(true);
-          setHighlightedSubject(holdsSubject);
-          heldRows.forEach((row) => row.classList.add('tour-held-row'));
-          await showDockMessage(step.holdsPreview);
-          await wait(reduceMotion() ? 0 : 1400);
-          heldRows.forEach((row) => row.classList.remove('tour-held-row'));
-
-          // Beat 2 of 2: back to the destination panel for the fill itself.
-          updateTourDockSpacing();
-          await scrollSubjectIntoView(subject);
-          updateTourDockSpacing(true);
-          setHighlightedSubject(subject);
+          markedHeldRows.forEach((row) => row.classList.add('tour-held-row'));
         }
+
+        if (isFirstPanelReveal) {
+          void destinationRoot.offsetHeight; // force the pre-reveal state to paint before it's removed
+          destinationRoot.classList.remove('is-pre-reveal');
+          await wait(reduceMotion() ? 0 : 750);
+          panelRevealed = true;
+        }
+
+        await runWorkingSequence(step.workSteps);
 
         if (step.fillAccountNumber) {
           setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
@@ -802,12 +951,25 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         }
 
         await swapTourStep(step, tourIndex, steps.length);
+        updateTourDockSpacing(true);
+        // The subject was framed against the dock's PREVIOUS copy, and a
+        // fill can grow the subject itself as rows land -- either can leave
+        // it a few pixels under the dock once this step's own (possibly
+        // taller) copy is showing. One more small, deliberate settle
+        // re-frames it, but only if that actually happened.
+        {
+          const dockTopFinal = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
+          if (subject.getBoundingClientRect().bottom > dockTopFinal - 16) {
+            await scrollSubjectIntoView(subject);
+            updateTourDockSpacing(true);
+          }
+        }
         tourNextButton.disabled = false;
         if (step.stage === 'review') {
           setStatus(status, 'Demo sample is ready for review.', 'success');
         } else if (step.stage === 'packet') {
           setStatus(status, 'Preparing the eMoney Fill Packet from eligible rows...');
-        } else if (step.stage === 'fill') {
+        } else if (step.stage === 'fill' && step.fillAccountNumber) {
           setStatus(status, `Account ${step.fillAccountNumber} filled into the simulated destination page.`, 'success');
         }
       };
@@ -817,6 +979,11 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       console.error('Could not load the demo sample.');
       setStatus(status, `Could not load demo sample: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
+  };
+  sampleButton.onclick = () => void startDemoTour();
+  tourRunAgainButton.onclick = () => {
+    tourRunAgainButton.hidden = true;
+    void startDemoTour();
   };
 
   clearSessionButton.onclick = async () => {
