@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 3 (Demo Destination Panel & Sample)
-Plan: 8 of 9 in current phase
+Plan: 9 of 9 in current phase
 Status: In progress
-Last activity: 2026-08-06 — Plan 01-08 (pure buildDemoTourSteps guided-tour stage model, closing the copy half of UAT GAP 1) completed
+Last activity: 2026-08-06 — Plan 01-09 (Next-driven guided tour wired to the page, per-account packet map fix, closing UAT GAP 1) completed
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress: [████████░░] 78%
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 01 P09 | 25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -53,6 +54,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 01]: runFillIntoPanel is the sole call site for runDemoFill so future consumers reuse the reset behavior for free
 - [Phase 01-06]: DMOL (zero-price row) placed alongside the $CASH$ row in account 2 so override ON/OFF exercises both manual-review codes in one demo run
 - [Phase 01-08]: buildDemoTourSteps kept pure (no DOM/timers) and colocated with WorkflowStep/demoRunStepOrder in main.ts; tour copy derives all counts from the real demo sample rather than literals
+- [Phase 01-09]: packetsByAccount keyed by accountNumber fixes the onFillPacketReady last-writer-wins bug; demoRunStepOrder deleted outright (superseded by buildDemoTourSteps, no remaining callers)
 
 ### Pending Todos
 
@@ -65,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-08-06
-Stopped at: Completed 01-08-PLAN.md
+Stopped at: Completed 01-09-PLAN.md
 Resume file: None

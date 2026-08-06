@@ -78,6 +78,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 (Phase 1 and Phase 2 have no depend
 
 | Phase | Plans Complete | Status | Completed |
 |-|-|-|-|
-| 1. Demo Destination Panel & Sample | 7/9 | In Progress|  |
+| 1. Demo Destination Panel & Sample | 8/9 | In Progress|  |
 | 2. Verdict Engine Hardening | 0/TBD | Not started | - |
 | 3. Verification & Public Surface Guards | 0/TBD | Not started | - |
