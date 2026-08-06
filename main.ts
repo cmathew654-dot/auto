@@ -529,10 +529,21 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   // Centers the subject in the usable band between the app header and the
   // fixed dock (not the raw viewport), biased slightly low per feedback
   // that centered content read as sitting too high.
-  const scrollTargetForSubject = (subject: HTMLElement): number => {
+  //
+  // dockTop/subjectHeight let a caller pass PREDICTED final values (the
+  // dock's height once this step's copy is showing, the subject's height
+  // once a fill has landed all its rows) instead of the current, stale
+  // ones -- so the single scroll already lands correctly and no second,
+  // corrective camera move is ever needed.
+  const scrollTargetForSubject = (
+    subject: HTMLElement,
+    overrides?: { dockTop?: number; subjectHeight?: number }
+  ): number => {
     const rect = subject.getBoundingClientRect();
     const headerBottom = Math.max(0, appHeader.getBoundingClientRect().bottom);
-    const dockTop = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
+    const dockTop =
+      overrides?.dockTop ?? (tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top);
+    const subjectHeight = overrides?.subjectHeight ?? rect.height;
     const bandTop = headerBottom + 16;
     const bandBottom = Math.max(bandTop + 1, dockTop - 16);
     const bandHeight = bandBottom - bandTop;
@@ -540,8 +551,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     // under the dock (clamped first) or the top edge under the header
     // (clamped second, so header clearance always wins for oversized
     // subjects that can't fit the band at all).
-    let idealTop = bandTop + bandHeight * 0.55 - rect.height / 2;
-    idealTop = Math.min(idealTop, bandBottom - rect.height);
+    let idealTop = bandTop + bandHeight * 0.55 - subjectHeight / 2;
+    idealTop = Math.min(idealTop, bandBottom - subjectHeight);
     idealTop = Math.max(idealTop, bandTop);
     const delta = rect.top - idealTop;
     const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
@@ -574,8 +585,73 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     });
   };
 
-  const scrollSubjectIntoView = (subject: HTMLElement): Promise<void> =>
-    animateScrollTo(scrollTargetForSubject(subject));
+  const scrollSubjectIntoView = (
+    subject: HTMLElement,
+    overrides?: { dockTop?: number; subjectHeight?: number }
+  ): Promise<void> => animateScrollTo(scrollTargetForSubject(subject, overrides));
+
+  // Predicts the dock's top edge for a step BEFORE that step's copy is
+  // actually displayed, by writing it in, measuring, then writing the
+  // previous content straight back -- all synchronously, so the browser
+  // never gets a chance to paint the intermediate state.
+  const predictDockTop = (step: DemoTourStep, index: number, total: number): number => {
+    const prev = {
+      hidden: tourCard.hidden,
+      counter: tourCounter.textContent,
+      title: tourTitle.textContent,
+      body: tourBody.textContent,
+      proof: tourProof.textContent,
+      titleHidden: tourTitle.hidden,
+      bodyHidden: tourBody.hidden,
+      proofHidden: tourProof.hidden,
+      workHidden: tourWork.hidden,
+      nextLabel: tourNextButton.textContent,
+    };
+    tourCard.hidden = false;
+    tourCounter.textContent = `Stage ${index + 1} of ${total}`;
+    tourTitle.textContent = step.title;
+    tourBody.textContent = step.body;
+    tourProof.textContent = step.proof;
+    tourTitle.hidden = false;
+    tourBody.hidden = false;
+    tourProof.hidden = false;
+    tourWork.hidden = true;
+    tourNextButton.textContent = step.nextLabel;
+
+    const dockTop = tourCard.getBoundingClientRect().top;
+
+    tourCard.hidden = prev.hidden;
+    tourCounter.textContent = prev.counter;
+    tourTitle.textContent = prev.title;
+    tourBody.textContent = prev.body;
+    tourProof.textContent = prev.proof;
+    tourTitle.hidden = prev.titleHidden;
+    tourBody.hidden = prev.bodyHidden;
+    tourProof.hidden = prev.proofHidden;
+    tourWork.hidden = prev.workHidden;
+    tourNextButton.textContent = prev.nextLabel;
+
+    return dockTop;
+  };
+
+  // Predicts a fill stage's destination table height once every eligible
+  // row has landed, by running the exact same fill into an off-screen
+  // clone (never appended visibly, so it cannot flash or race the real,
+  // staggered fill that plays after the scroll settles).
+  const predictFillSubjectHeight = async (accountNumber: string): Promise<number | undefined> => {
+    const packet = packetsByAccount.get(accountNumber);
+    if (!packet) return undefined;
+    const measureHost = document.createElement('div');
+    measureHost.style.cssText = `position:absolute; visibility:hidden; left:-9999px; top:0; width:${destinationPanelHost.getBoundingClientRect().width}px;`;
+    document.body.appendChild(measureHost);
+    try {
+      const measurePanel = renderDemoDestinationPanel(measureHost);
+      await runDemoFill(measurePanel.root, packet, { stepDelayMs: 0 });
+      return measurePanel.root.querySelector<HTMLElement>('.demo-dest-table-wrap')?.getBoundingClientRect().height;
+    } finally {
+      measureHost.remove();
+    }
+  };
 
   let highlightedSubject: HTMLElement | null = null;
   const setHighlightedSubject = (subject: HTMLElement | null): void => {
@@ -808,7 +884,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           fillButton.disabled = !packet;
           if (packet) {
             packetsByAccount.set(packet.accountNumber, packet);
-            withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row(s) that failed review.`;
+            withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row${packet.blockedCount === 1 ? '' : 's'} that failed review.`;
           }
         },
       });
@@ -889,9 +965,9 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         const totalEligible = tourAccounts.reduce((sum, a) => sum + a.eligibleCount, 0);
         const totalWithheld = tourAccounts.reduce((sum, a) => sum + a.withheldCount, 0);
         const closingLines = [
-          `${totalRows} row(s) processed across ${tourAccounts.length} account(s)`,
-          `${totalEligible} row(s) landed on the destination panel`,
-          `${totalWithheld} row(s) held back for manual review or a missing lookup key`,
+          `${totalRows} row${totalRows === 1 ? '' : 's'} processed across ${tourAccounts.length} account${tourAccounts.length === 1 ? '' : 's'}`,
+          `${totalEligible} row${totalEligible === 1 ? '' : 's'} landed on the destination panel`,
+          `${totalWithheld} row${totalWithheld === 1 ? '' : 's'} held back for manual review or a missing lookup key`,
         ];
         // Per-account breakdown, typed into the same transcript -- real
         // counts and reasons, derived from the actual verdict results for
@@ -901,7 +977,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           .forEach((account) => {
             const packet = packetsByAccount.get(account.accountNumber)!;
             closingLines.push(
-              `Account ${account.accountNumber}: ${account.holdings.length} row(s) processed, ${packet.rowCount} landed, ${packet.blockedCount} held`
+              `Account ${account.accountNumber}: ${account.holdings.length} row${account.holdings.length === 1 ? '' : 's'} processed, ${packet.rowCount} landed, ${packet.blockedCount} held`
             );
             if (packet.blockedCount > 0) {
               getAccountRowDisplay(account, { allowManualOverride: false })
@@ -1008,7 +1084,16 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         applyStageFocus(step);
         updateTourDockSpacing();
         const subject = getStageSubject(step);
-        await scrollSubjectIntoView(subject);
+        // Predict the dock's FINAL height (this step's copy, not the
+        // still-showing previous step's) and, for a fill stage, the
+        // subject's FINAL height (every row landed, not the empty table
+        // that's on screen right now) so the one scroll below already
+        // lands correctly -- no second, corrective camera move needed.
+        const predictedDockTop = predictDockTop(step, tourIndex, steps.length);
+        const predictedSubjectHeight = step.fillAccountNumber
+          ? await predictFillSubjectHeight(step.fillAccountNumber)
+          : undefined;
+        await scrollSubjectIntoView(subject, { dockTop: predictedDockTop, subjectHeight: predictedSubjectHeight });
         updateTourDockSpacing(true);
         setHighlightedSubject(subject);
 
@@ -1042,18 +1127,21 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
         await swapTourStep(step, tourIndex, steps.length);
         updateTourDockSpacing(true);
-        // The subject was framed against the dock's PREVIOUS copy, and a
-        // fill can grow the subject itself as rows land -- either can leave
-        // it a few pixels under the dock once this step's own (possibly
-        // taller) copy is showing. One more small, deliberate settle
-        // re-frames it, but only if that actually happened.
+        // Safety net only: the scroll above already framed the subject
+        // against the PREDICTED final dock height and (for fills) the
+        // predicted final row count, so this should essentially never
+        // fire. It stays as a guard against a prediction miss (e.g. a
+        // font/layout change mid-run) -- any positive overlap means the
+        // dock is genuinely covering the subject and must be corrected.
         {
           const dockTopFinal = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
           const overlap = subject.getBoundingClientRect().bottom - (dockTopFinal - 16);
-          // Small overlaps aren't worth a second, visible camera move (that
-          // second move is what read as zoom/drift on stage 5) -- only
-          // re-settle when the dock would meaningfully cover the subject.
-          if (overlap > 40) {
+          // The second, visible camera move that read as zoom/drift on
+          // stage 5 only happens when clearance is genuinely negative --
+          // any positive overlap means the dock is covering the subject,
+          // so it must always be corrected. There is no safe threshold
+          // above zero: even a few px of overlap hides content.
+          if (overlap > 0) {
             await scrollSubjectIntoView(subject);
             updateTourDockSpacing(true);
           }

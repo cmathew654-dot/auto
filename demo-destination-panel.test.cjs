@@ -67,8 +67,29 @@ test('main.ts routes every fill through a resetting runFillIntoPanel helper', ()
   assert.ok(resetIdx >= 0 && fillIdx >= 0, 'runFillIntoPanel must reset and fill');
   assert.ok(resetIdx < fillIdx, 'reset() must happen before runDemoFill(');
 
-  // runFillIntoPanel is the ONLY call site for runDemoFill in main.ts.
-  const outsideHelper = mainSource.slice(0, helperStart) + mainSource.slice(helperStart + helperBody.length + 'const runFillIntoPanel'.length);
+  // runFillIntoPanel is the ONLY call site that fills the REAL, on-screen
+  // destination panel. predictFillSubjectHeight is a separate, allowed
+  // exception: it runs the same fill into a throwaway, off-screen clone
+  // purely to measure the table's final height before the tour scrolls --
+  // it never touches the visible panel and is excluded from this check
+  // the same way runFillIntoPanel's own body is.
+  const measureStart = mainSource.indexOf('const predictFillSubjectHeight');
+  assert.ok(measureStart >= 0, 'predictFillSubjectHeight not found in main.ts');
+  const afterMeasure = mainSource.slice(measureStart + 'const predictFillSubjectHeight'.length);
+  const measureEndIdx = afterMeasure.search(/\n  const /);
+  const measureBody = measureEndIdx >= 0 ? afterMeasure.slice(0, measureEndIdx) : afterMeasure;
+  const measureEnd = measureStart + 'const predictFillSubjectHeight'.length + measureBody.length;
+  const helperEnd = helperStart + 'const runFillIntoPanel'.length + helperBody.length;
+
+  // Excise both regions regardless of which one appears first in the file.
+  const regions = [
+    [helperStart, helperEnd],
+    [measureStart, measureEnd],
+  ].sort((a, b) => a[0] - b[0]);
+  const outsideHelper =
+    mainSource.slice(0, regions[0][0]) +
+    mainSource.slice(regions[0][1], regions[1][0]) +
+    mainSource.slice(regions[1][1]);
   assert.doesNotMatch(outsideHelper, /runDemoFill\(/);
 
   // fillButton.onclick delegates instead of calling runDemoFill directly.

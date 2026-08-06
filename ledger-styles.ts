@@ -383,7 +383,11 @@ export function installRegulatedLedgerStyles(): void {
       outline: 3px solid var(--accent);
       outline-offset: 6px;
       box-shadow: 0 0 0 10px var(--accent-soft);
-      border-radius: 0;
+      /* !important: every possible subject (.holdings-table-wrap,
+         .transfer-card, .landing-action-card, .demo-dest-table-wrap) sets
+         its own border-radius at the same specificity; source order alone
+         let those win. The highlight ring must always be square. */
+      border-radius: 0 !important;
       position: relative;
       z-index: 10;
       transition: outline-color var(--motion), box-shadow var(--motion);

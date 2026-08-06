@@ -221,8 +221,11 @@ test('the tour dock stays fixed on screen and scrolls each stage\'s subject into
   const advanceStart = mainSource.indexOf('const advanceTour = async');
   const advanceEnd = mainSource.indexOf('\n      };', advanceStart);
   const advanceBody = mainSource.slice(advanceStart, advanceEnd);
-  assert.match(advanceBody, /await scrollSubjectIntoView\(subject\)/, 'every stage advance must settle its scroll before anything else moves');
-  assert.match(advanceBody, /applyStageFocus[\s\S]*await scrollSubjectIntoView\(subject\)[\s\S]*setHighlightedSubject\(subject\)[\s\S]*await runFillIntoPanel[\s\S]*await swapTourStep/, 'one thing moves at a time: layout focuses, then scroll settles, then highlight, then the fill runs (never before the scroll has settled), then the dock copy swaps');
+  // scrollSubjectIntoView may take a second, optional overrides argument
+  // (predicted final dock/subject dimensions) -- the invariant under test
+  // is the ORDER of operations, not the exact call signature.
+  assert.match(advanceBody, /await scrollSubjectIntoView\(subject[^)]*\)/, 'every stage advance must settle its scroll before anything else moves');
+  assert.match(advanceBody, /applyStageFocus[\s\S]*await scrollSubjectIntoView\(subject[^)]*\)[\s\S]*setHighlightedSubject\(subject\)[\s\S]*await runFillIntoPanel[\s\S]*await swapTourStep/, 'one thing moves at a time: layout focuses, then scroll settles, then highlight, then the fill runs (never before the scroll has settled), then the dock copy swaps');
 
   const stylesSource = fs.readFileSync(path.join(__dirname, 'ledger-styles.ts'), 'utf8');
   const cardStart = stylesSource.indexOf('.ledger-tour-card {');
