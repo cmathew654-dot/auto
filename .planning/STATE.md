@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 3 (Demo Destination Panel & Sample)
-Plan: 7 of 9 in current phase
+Plan: 8 of 9 in current phase
 Status: In progress
-Last activity: 2026-08-06 — Plan 01-06 (two-account, 14-row synthetic demo sample) and Plan 01-07 (idempotent fill via runFillIntoPanel, closing UAT GAP 3) completed
+Last activity: 2026-08-06 — Plan 01-08 (pure buildDemoTourSteps guided-tour stage model, closing the copy half of UAT GAP 1) completed
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 14.3 min
-- Total execution time: 1.4 hours
+- Total plans completed: 7
+- Average duration: 13.9 min
+- Total execution time: 1.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-|-|-|-|
-| 01-demo-destination-panel-sample | 6 | 86 min | 14 min |
+| 01-demo-destination-panel-sample | 7 | 98 min | 14 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (15 min, 2 tasks, 2 files), 01-03 (12 min, 3 tasks, 5 files), 01-04 (20 min, 3 tasks, 4 files), 01-06 (12 min, 3 tasks, 3 files), 01-07 (12 min, tasks per SUMMARY)
+- Last 5 plans: 01-03 (12 min, 3 tasks, 5 files), 01-04 (20 min, 3 tasks, 4 files), 01-06 (12 min, 3 tasks, 3 files), 01-07 (12 min, tasks per SUMMARY), 01-08 (12 min, 2 tasks, 2 files)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -52,6 +52,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 01-demo-destination-panel-sample]: destinationRoot hide/reset logic centralized in hideDestinationPanel(), shared by Clear session and by re-running the demo
 - [Phase 01]: runFillIntoPanel is the sole call site for runDemoFill so future consumers reuse the reset behavior for free
 - [Phase 01-06]: DMOL (zero-price row) placed alongside the $CASH$ row in account 2 so override ON/OFF exercises both manual-review codes in one demo run
+- [Phase 01-08]: buildDemoTourSteps kept pure (no DOM/timers) and colocated with WorkflowStep/demoRunStepOrder in main.ts; tour copy derives all counts from the real demo sample rather than literals
 
 ### Pending Todos
 
@@ -64,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-08-06
-Stopped at: Completed 01-07-PLAN.md
+Stopped at: Completed 01-08-PLAN.md
 Resume file: None
