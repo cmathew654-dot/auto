@@ -43,6 +43,20 @@ for (const file of readdirSync(outDir)) {
   writeFileSync(path, content);
 }
 
+function resolveGit(args, fallback) {
+  const result = spawnSync('git', args, { encoding: 'utf8' });
+  if (result.status !== 0) return fallback;
+  const out = result.stdout.trim();
+  return out || fallback;
+}
+
+const sha = resolveGit(['rev-parse', '--short', 'HEAD'], process.env.GITHUB_SHA?.slice(0, 7) ?? null);
+const builtAt = resolveGit(['log', '-1', '--format=%cI'], new Date().toISOString());
+
+const buildInfoScript = sha
+  ? `    <script>window.__BUILD_INFO__ = ${JSON.stringify({ sha, builtAt })};</script>\n`
+  : '';
+
 writeFileSync(join(outDir, 'index.html'), `<!doctype html>
 <html lang="en">
   <head>
@@ -52,7 +66,7 @@ writeFileSync(join(outDir, 'index.html'), `<!doctype html>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module">
+${buildInfoScript}    <script type="module">
       import { renderLocalMvpShell } from './main.js';
       renderLocalMvpShell(document.getElementById('app'));
     </script>
