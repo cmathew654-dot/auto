@@ -25,7 +25,7 @@ in PROJECT.md — it is not re-specified here.
 
 - [x] **SMPL-01**: Demo sample CSV produces at least one ok, one review, and one block verdict in the same run
 - [x] **SMPL-02**: Demo sample exercises the manual-review safety gate, so the override control visibly has something to gate
-- [x] **SMPL-03**: Demo sample uses synthetic tickers, accounts, and values only
+- [x] **SMPL-03**: Demo sample uses real market ticker symbols with fully fabricated accounts, quantities, and values
 - [x] **SMPL-04**: Only eligible rows from the demo sample reach the destination panel; blocked rows are visibly withheld
 
 ### Verdict Engine Hardening

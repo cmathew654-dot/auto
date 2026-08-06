@@ -81,15 +81,20 @@ test('across both accounts, a single parse yields at least one ok, one review, a
   assert.ok(blocked.length >= 1, 'expected at least one hard-blocked holding (MISSING_LOOKUP_KEY)');
 });
 
-test('demo sample contains no real-world identifiers', () => {
+test('demo sample uses real market tickers but every account detail is fabricated', () => {
   const text = fs.readFileSync(path.join(__dirname, 'demo-sample.ts'), 'utf8');
-  const realTickers = [/\bAAPL\b/, /\bMSFT\b/, /\bGOOG\b/, /\bVTI\b/, /\bVXUS\b/, /\bBND\b/];
-  const realNames = [/Apple/i, /Microsoft/i, /Alphabet/i, /Vanguard/i];
 
-  [...realTickers, ...realNames].forEach((pattern) => {
-    assert.ok(!pattern.test(text), `demo-sample.ts should not match ${pattern}`);
+  // Real, recognizable ticker symbols are the whole point (SMPL-03 update):
+  // the guarantee is fabricated positions, not fabricated tickers.
+  const realTickers = [/\bAAPL\b/, /\bMSFT\b/, /\bVTI\b/, /\bBND\b/];
+  realTickers.forEach((pattern) => {
+    assert.ok(pattern.test(text), `demo-sample.ts should carry a recognizable real ticker matching ${pattern}`);
   });
 
   assert.ok(text.includes('900000001'), 'demo-sample.ts should use the fabricated account number 900000001');
   assert.ok(text.includes('900000002'), 'demo-sample.ts should use the fabricated account number 900000002');
+
+  // Every data row's Owner column is the generic "Demo Household", never a real name.
+  const dataRows = text.match(/'Demo Household[^']*'/g) || [];
+  assert.ok(dataRows.length >= 14, 'expected all 14 demo rows to carry the generic Demo Household owner');
 });

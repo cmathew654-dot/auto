@@ -34,7 +34,7 @@ test('demo packet (override off) carries only eligible rows, withholds review-ga
 
     const tickers = packet.holdings.map((row) => row.ticker);
     assert.ok(!tickers.includes(''), 'the MISSING_LOOKUP_KEY row (blank symbol) must never reach the fill packet');
-    assert.ok(!tickers.includes('$CASH$'), 'the manual-review-gated cash row must not appear with override OFF');
+    assert.ok(!tickers.includes('SPAXX'), 'the manual-review-gated cash row must not appear with override OFF');
 
     const withheldCount = account.holdings.length - packet.holdings.length;
     assert.equal(packet.blockedCount, withheldCount, 'blockedCount must equal the number of withheld holdings');
@@ -52,10 +52,10 @@ test('the manual-review override changes the packet contents', () => {
   const off = buildDemoPacket({ allowManualOverride: false }, 1).packet;
   const on = buildDemoPacket({ allowManualOverride: true }, 1).packet;
 
-  assert.ok(!off.holdings.some((row) => row.ticker === '$CASH$'), 'cash row absent with override OFF');
-  assert.ok(on.holdings.some((row) => row.ticker === '$CASH$'), 'cash row present with override ON');
-  assert.ok(!off.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row absent with override OFF');
-  assert.ok(on.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row present with override ON');
+  assert.ok(!off.holdings.some((row) => row.ticker === 'SPAXX'), 'cash row absent with override OFF');
+  assert.ok(on.holdings.some((row) => row.ticker === 'SPAXX'), 'cash row present with override ON');
+  assert.ok(!off.holdings.some((row) => row.ticker === 'PFE'), 'zero-price row absent with override OFF');
+  assert.ok(on.holdings.some((row) => row.ticker === 'PFE'), 'zero-price row present with override ON');
   assert.ok(!on.holdings.some((row) => row.ticker === ''), 'the MISSING_LOOKUP_KEY row still never appears with override ON');
 });
 
@@ -210,7 +210,7 @@ test('the tour dock stays fixed on screen and scrolls each stage\'s subject into
   const advanceEnd = mainSource.indexOf('\n      };', advanceStart);
   const advanceBody = mainSource.slice(advanceStart, advanceEnd);
   assert.match(advanceBody, /await scrollSubjectIntoView\(subject\)/, 'every stage advance must settle its scroll before anything else moves');
-  assert.match(advanceBody, /await runFillIntoPanel[\s\S]*applyStageFocus[\s\S]*await scrollSubjectIntoView[\s\S]*setHighlightedSubject[\s\S]*await swapTourStep/, 'one thing moves at a time: fill completes, then layout focuses, then scroll settles, then highlight, then the dock copy swaps — in that order, never simultaneously');
+  assert.match(advanceBody, /applyStageFocus[\s\S]*await scrollSubjectIntoView\(subject\)[\s\S]*setHighlightedSubject\(subject\)[\s\S]*await runFillIntoPanel[\s\S]*await swapTourStep/, 'one thing moves at a time: layout focuses, then scroll settles, then highlight, then the fill runs (never before the scroll has settled), then the dock copy swaps');
 
   const stylesSource = fs.readFileSync(path.join(__dirname, 'ledger-styles.ts'), 'utf8');
   const cardStart = stylesSource.indexOf('.ledger-tour-card {');
