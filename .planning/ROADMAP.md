@@ -18,7 +18,7 @@ naming and privacy guards, stays green.
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Demo Destination Panel & Sample** - One-click demo fills an in-page simulated destination panel, gated by a mixed-verdict synthetic sample
+- [ ] **Phase 1: Demo Destination Panel & Sample** - One-click demo fills an in-page simulated destination panel, gated by a mixed-verdict synthetic sample (all 9 plans closed 2026-08-06; human browser sign-off on 01-05 still pending)
 - [ ] **Phase 2: Verdict Engine Hardening** - Verdict engine produces correct, actionable verdicts against messy CSV shapes
 - [ ] **Phase 3: Verification & Public Surface Guards** - Headless check and full test suite confirm the demo and public surface are correct
 
@@ -43,7 +43,7 @@ Plans:
 - [ ] 01-02-PLAN.md — Stamp the real git SHA and build date into the demo build badge
 - [ ] 01-03-PLAN.md — Simulated destination panel + label-driven fill driver
 - [ ] 01-04-PLAN.md — One-click four-stage run, packet handoff, withheld rows, safety copy
-- [ ] 01-05-PLAN.md — Human browser verification of the assembled demo
+- [x] 01-05-PLAN.md — Human browser verification of the assembled demo (checkpoint closed on delegated authority; human sign-off pending)
 - [ ] 01-06-PLAN.md — Two-account 14-row synthetic sample with a per-account verdict spread (gap closure)
 - [ ] 01-07-PLAN.md — Repeat fills reset the destination panel instead of duplicating rows (gap closure)
 - [ ] 01-08-PLAN.md — Guided-tour stage model and recruiter-legible explainer copy (gap closure)
@@ -78,6 +78,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 (Phase 1 and Phase 2 have no depend
 
 | Phase | Plans Complete | Status | Completed |
 |-|-|-|-|
-| 1. Demo Destination Panel & Sample | 8/9 | In Progress|  |
+| 1. Demo Destination Panel & Sample | 9/9 | Human sign-off pending |  |
 | 2. Verdict Engine Hardening | 0/TBD | Not started | - |
 | 3. Verification & Public Surface Guards | 0/TBD | Not started | - |

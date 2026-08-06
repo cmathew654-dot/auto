@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 1 of 3 (Demo Destination Panel & Sample)
 Plan: 9 of 9 in current phase
-Status: In progress
-Last activity: 2026-08-06 — Plan 01-09 (Next-driven guided tour wired to the page, per-account packet map fix, closing UAT GAP 1) completed
+Status: In progress — checkpoint closed on delegated authority, human browser sign-off pending
+Last activity: 2026-08-06 — Plan 01-05 (seven rounds of human-verification defect closure on the guided demo tour) closed
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -55,6 +55,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 01-06]: DMOL (zero-price row) placed alongside the $CASH$ row in account 2 so override ON/OFF exercises both manual-review codes in one demo run
 - [Phase 01-08]: buildDemoTourSteps kept pure (no DOM/timers) and colocated with WorkflowStep/demoRunStepOrder in main.ts; tour copy derives all counts from the real demo sample rather than literals
 - [Phase 01-09]: packetsByAccount keyed by accountNumber fixes the onFillPacketReady last-writer-wins bug; demoRunStepOrder deleted outright (superseded by buildDemoTourSteps, no remaining callers)
+- [Phase 01-05]: Tour card rebuilt as a fixed viewport dock (not sticky) because sticky cannot fix a card whose DOM slot sits below its subject
+- [Phase 01-05]: Scroll-reserve blip fixed by predicting the settled scrollable range up front instead of reserving-then-retracting layout space, root-caused via in-page instrumentation
+- [Phase 01-05]: Roboto bundled locally as an inlined base64 variable woff2 because a passing test forbids remote font services
+- [Phase 01-05]: Checkpoint closed on delegated authority with orchestrator-measured Playwright evidence against c5266db; human browser sign-off still pending
 
 ### Pending Todos
 
@@ -62,10 +66,11 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet.
+- TRST-03: GitHub Pages URL will contain "Injector" via the repo name `emoney-holdings-injector`; intended fix is a repo rename to `emoney-holdings-entry-assistant`, blocked by a hardcoded VC policy preventing remote/ref-writing operations
+- Ten local commits from 01-05 (`004af2c`..`c5266db`) have not been pushed; local main and origin/main are in sync at the pre-round state
 
 ## Session Continuity
 
 Last session: 2026-08-06
-Stopped at: Completed 01-09-PLAN.md
+Stopped at: Completed 01-05-PLAN.md (checkpoint closed on delegated authority; human browser sign-off still pending)
 Resume file: None
