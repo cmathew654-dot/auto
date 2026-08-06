@@ -23,9 +23,9 @@ in PROJECT.md — it is not re-specified here.
 
 ### Demo Sample
 
-- [ ] **SMPL-01**: Demo sample CSV produces at least one ok, one review, and one block verdict in the same run
-- [ ] **SMPL-02**: Demo sample exercises the manual-review safety gate, so the override control visibly has something to gate
-- [ ] **SMPL-03**: Demo sample uses synthetic tickers, accounts, and values only
+- [x] **SMPL-01**: Demo sample CSV produces at least one ok, one review, and one block verdict in the same run
+- [x] **SMPL-02**: Demo sample exercises the manual-review safety gate, so the override control visibly has something to gate
+- [x] **SMPL-03**: Demo sample uses synthetic tickers, accounts, and values only
 - [ ] **SMPL-04**: Only eligible rows from the demo sample reach the destination panel; blocked rows are visibly withheld
 
 ### Verdict Engine Hardening
@@ -44,7 +44,7 @@ operator can act on.
 ### Trust Surface
 
 - [ ] **TRST-01**: Safety model is legible from the demo page itself — browser processing, no project server, manual save in eMoney, synthetic demo data
-- [ ] **TRST-02**: Build badge on the public demo shows the real short git SHA and build date instead of falling back to "Build dev"
+- [x] **TRST-02**: Build badge on the public demo shows the real short git SHA and build date instead of falling back to "Build dev"
 - [ ] **TRST-03**: Public surface never says "Injector"; the existing naming and privacy guards stay green
 
 ### Verification
@@ -100,9 +100,9 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 | DEMO-06 | 1 | Pending |
 | DEMO-07 | 1 | Pending |
 | DEMO-08 | 1 | Pending |
-| SMPL-01 | 1 | Pending |
-| SMPL-02 | 1 | Pending |
-| SMPL-03 | 1 | Pending |
+| SMPL-01 | 1 | Complete |
+| SMPL-02 | 1 | Complete |
+| SMPL-03 | 1 | Complete |
 | SMPL-04 | 1 | Pending |
 | VRDT-01 | 2 | Pending |
 | VRDT-02 | 2 | Pending |
@@ -112,7 +112,7 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 | VRDT-06 | 2 | Pending |
 | VRDT-07 | 2 | Pending |
 | TRST-01 | 1 | Pending |
-| TRST-02 | 1 | Pending |
+| TRST-02 | 1 | Complete |
 | TRST-03 | 3 | Pending |
 | VERI-01 | 3 | Pending |
 | VERI-02 | 3 | Pending |
