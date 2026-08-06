@@ -17,13 +17,9 @@ import { parseHoldingsCsvToIngestionFile } from './holdings-csv-parser';
 import type { HoldingsIngestionFile } from './holdings-schema';
 import { installRegulatedLedgerStyles } from './ledger-styles';
 import { clearMatchingClipboard, renderReviewExportSurface } from './review-export-surface';
+import { DEMO_SAMPLE_CSV } from './demo-sample';
 
-export const SAMPLE_CSV_INPUT = [
-  'Account Description,Account Number,Owner,Last Updated,Symbol,Description,Quantity,Price,Cost Basis,Value,Asset Class',
-  'Demo Account,123456789,Demo Client,05/26/2026,AAPL,APPLE INCORPORATED,10,$100.00,$1450.00,$3000.00,US Large Cap Blend',
-  'Demo Account,123456789,Demo Client,05/26/2026,MSFT,MICROSOFT CORPORATION,5,$100.00,$1800.00,$2500.00,US Large Cap Value',
-  'Demo Account,123456789,Demo Client,05/26/2026,GOOG,ALPHABET INCORPORATED CAP STK CLASS C,3,$100.00,$900.00,$1200.00,US Large Cap Blend',
-].join('\n');
+export const SAMPLE_CSV_INPUT = DEMO_SAMPLE_CSV;
 
 type WorkflowStep = 'load' | 'review' | 'packet' | 'fill';
 
