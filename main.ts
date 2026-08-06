@@ -32,6 +32,85 @@ export function demoRunStepOrder(hasEligiblePacket: boolean): WorkflowStep[] {
   return hasEligiblePacket ? ['review', 'packet', 'fill'] : ['review'];
 }
 
+export interface DemoTourAccount {
+  accountNumber: string;
+  totalRows: number;
+  eligibleCount: number;
+  withheldCount: number;
+}
+
+export interface DemoTourStep {
+  id: string;
+  stage: WorkflowStep;      // which stepper stage this step lights up
+  title: string;            // recruiter-legible headline
+  body: string;             // what just happened
+  proof: string;            // what it proves
+  nextLabel: string;        // Next button text; last step reads "Done"
+  fillAccountNumber?: string; // when set, advancing INTO this step fills that account first
+}
+
+// Pure step model for the click-through guided tour. No DOM, no timers, no
+// module state — 01-09 wires this list to Next-button clicks on the page.
+export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] {
+  const totalRows = accounts.reduce((sum, a) => sum + a.totalRows, 0);
+  const steps: DemoTourStep[] = [
+    {
+      id: 'load',
+      stage: 'load',
+      title: 'The sample CSV loads in your browser',
+      body: 'A synthetic holdings file was just read and parsed locally, in this browser tab.',
+      proof: 'No upload, no account, no project server involved — the file never leaves the browser.',
+      nextLabel: 'Next: see every row get a verdict',
+    },
+    {
+      id: 'review',
+      stage: 'review',
+      title: 'Every row gets a verdict',
+      body: `All ${totalRows} rows across ${accounts.length} account${accounts.length === 1 ? '' : 's'} were checked and given a clear pass or hold decision.`,
+      proof: 'A human sees every verdict before anything is entered anywhere.',
+      nextLabel: accounts.length === 0 ? 'Done' : 'Next: see what gets packaged',
+    },
+  ];
+
+  if (accounts.length === 0) {
+    steps[steps.length - 1].nextLabel = 'Done';
+    return steps;
+  }
+
+  steps.push({
+    id: 'packet',
+    stage: 'packet',
+    title: 'Only approved rows get packaged',
+    body: 'Only the rows that cleared review are bundled into the fill packet for the destination page.',
+    proof: 'Blocked rows physically cannot reach the destination page.',
+    nextLabel: 'Next: fill the first account',
+  });
+
+  accounts.forEach((account, index) => {
+    const isLast = index === accounts.length - 1;
+    const clean = account.withheldCount === 0;
+    const body = clean
+      ? `All ${account.totalRows} rows in account ${account.accountNumber} landed on the destination panel.`
+      : `${account.eligibleCount} of ${account.totalRows} rows in account ${account.accountNumber} landed on the destination panel; ${account.withheldCount} were held back — some are waiting on a manual-review override, and some (like a cash row that needs a human decision) have no ticker or CUSIP and can never be auto-entered.`;
+    const proof = clean
+      ? 'This is what a clean account looks like — the baseline for the next one.'
+      : 'The panel above shows only what passed: the gates are doing judgment, not breaking.';
+    steps.push({
+      id: `fill-${account.accountNumber}`,
+      stage: 'fill',
+      title: clean
+        ? `Account ${account.accountNumber}: a clean fill`
+        : `Account ${account.accountNumber}: a fill with holds`,
+      body: `${body} Save is still a human click — this destination panel is a simulation, not eMoney.`,
+      proof,
+      nextLabel: isLast ? 'Done' : 'Next: fill the next account',
+      fillAccountNumber: account.accountNumber,
+    });
+  });
+
+  return steps;
+}
+
 interface LocalMvpOptions {
   sourceFilename?: string;
   onPacketPrepared?: (event: { accountNumber: string; rowCount: number; copied: boolean }) => void;
