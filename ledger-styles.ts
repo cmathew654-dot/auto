@@ -321,6 +321,61 @@ export function installRegulatedLedgerStyles(): void {
       to   { transform: scale(1);    opacity: 1; }
     }
 
+    /* ── Guided tour card ─────────────────────────────────────────────── */
+
+    .ledger-tour-card {
+      display: grid;
+      gap: var(--s-2);
+      padding: var(--s-6);
+      background: var(--surface);
+      border: 1px solid var(--accent-line);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lift);
+    }
+
+    .ledger-tour-card[hidden] { display: none; }
+
+    .ledger-tour-counter {
+      margin: 0;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .ledger-tour-card h2 {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .ledger-tour-card > p {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--ink-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .ledger-tour-proof {
+      padding: var(--s-3) var(--s-4);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-line);
+      border-radius: var(--r);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .ledger-tour-card .ledger-button {
+      justify-self: end;
+      margin-top: var(--s-2);
+    }
+
     /* ── Panels ───────────────────────────────────────────────────────── */
 
     .ledger-panel {

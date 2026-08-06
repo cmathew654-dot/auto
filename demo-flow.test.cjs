@@ -11,7 +11,7 @@ const {
   buildAccountPreflightSummary,
 } = require('./.test-dist/review-export-surface.js');
 const { buildEmoneyFillPacket } = require('./.test-dist/paste-conductor.js');
-const { demoRunStepOrder, buildDemoTourSteps } = require('./.test-dist/main.js');
+const { buildDemoTourSteps } = require('./.test-dist/main.js');
 
 function buildDemoPacket(opts, accountIndex = 0) {
   const ingestion = parseHoldingsCsvToIngestionFile(DEMO_SAMPLE_CSV, { fileId: 'demo-flow-test' });
@@ -57,17 +57,6 @@ test('the manual-review override changes the packet contents', () => {
   assert.ok(!off.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row absent with override OFF');
   assert.ok(on.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row present with override ON');
   assert.ok(!on.holdings.some((row) => row.ticker === ''), 'the MISSING_LOOKUP_KEY row still never appears with override ON');
-});
-
-test('a demo run with an eligible packet ends the stepper on "fill", not regressed to "review"', () => {
-  const order = demoRunStepOrder(true);
-  assert.equal(order[order.length - 1], 'fill', 'the stepper must end on fill, matching the visible destination panel');
-  assert.deepEqual(order, ['review', 'packet', 'fill'], 'all three post-load stages must be walked in order');
-});
-
-test('a demo run with no eligible rows stays on "review" and never claims a packet or fill stage', () => {
-  const order = demoRunStepOrder(false);
-  assert.deepEqual(order, ['review']);
 });
 
 function buildDemoTourAccounts(opts = { allowManualOverride: false }) {
@@ -170,4 +159,42 @@ test('the safety model is legible on the page', () => {
   assert.match(mainSource, /NO PROJECT SERVER/);
   assert.match(mainSource, /BROWSER PROCESSING/);
   assert.match(mainSource, /manual operator click|Save.*manual/i);
+});
+
+test('the guided tour is Next-driven, not timer-driven', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  const tourStart = mainSource.indexOf('buildDemoTourSteps(tourAccounts)');
+  assert.ok(tourStart >= 0, 'sampleButton.onclick must build the tour from buildDemoTourSteps');
+  const handlerEnd = mainSource.indexOf('\n  };', tourStart);
+  const tourSection = mainSource.slice(tourStart, handlerEnd);
+
+  assert.match(tourSection, /advanceTour/, 'the tour section must drive an advanceTour step machine');
+  assert.doesNotMatch(tourSection, /delay\(/, 'the tour must not pace itself with delay(); Next presses drive it');
+});
+
+test('main.ts carries no dead demoRunStepOrder export', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  assert.doesNotMatch(mainSource, /demoRunStepOrder/);
+});
+
+test('the tour fills through the shared runFillIntoPanel helper, not runDemoFill directly', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  const advanceStart = mainSource.indexOf('const advanceTour = async');
+  const advanceEnd = mainSource.indexOf('\n      };', advanceStart);
+  const advanceBody = mainSource.slice(advanceStart, advanceEnd);
+
+  assert.match(advanceBody, /runFillIntoPanel\(/);
+  assert.doesNotMatch(advanceBody, /runDemoFill\(/);
+});
+
+test('per-account fills read from a packet map, not a single last-writer-wins packet', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  assert.match(mainSource, /packetsByAccount\.get\(step\.fillAccountNumber/);
+  assert.match(mainSource, /packetsByAccount\.set\(/);
+});
+
+test('ledger-styles.ts styles the tour card and carries no eMoney trade dress', () => {
+  const stylesSource = fs.readFileSync(path.join(__dirname, 'ledger-styles.ts'), 'utf8');
+  assert.match(stylesSource, /\.ledger-tour-card/);
+  assert.doesNotMatch(stylesSource, /emoney/i);
 });
