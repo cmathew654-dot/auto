@@ -51,6 +51,7 @@ export interface ReviewExportSurfaceOptions {
   onExport?: (payload: AssistantAccountPayload) => void;
   onPacketPrepared?: (event: { accountNumber: string; rowCount: number; copied: boolean }) => void;
   onClipboardWrite?: (text: string) => void;
+  onFillPacketReady?: (packet: EmoneyFillPacket | null) => void;
 }
 
 export const MANUAL_REVIEW_REQUIRED_CODES = new Set<Issue['code']>([
@@ -700,6 +701,7 @@ export function renderReviewExportSurface(
 
     const renderTransferPacket = () => {
       const { payload } = buildActivePackets();
+      opts?.onFillPacketReady?.(activeFillPacket && activeFillPacket.rowCount > 0 ? activeFillPacket : null);
       if (!activeFillPacket || !activeManualBatch) return;
       transferPanel.innerHTML = '';
 
