@@ -18,6 +18,7 @@
     "holdings-csv-parser.ts",
     "review-export-surface.ts",
     "paste-conductor.ts",
-    "emoney-browser-helper.ts"
+    "emoney-browser-helper.ts",
+    "demo-sample.ts"
   ]
 }
