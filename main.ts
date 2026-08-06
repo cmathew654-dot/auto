@@ -308,6 +308,14 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     demoPanel?.reset();
   };
 
+  const runFillIntoPanel = async (packet: EmoneyFillPacket): Promise<void> => {
+    if (!demoPanel) return;
+    demoPanel.reset(); // idempotent fill: never append onto a prior fill's rows
+    await runDemoFill(demoPanel.root, packet, {
+      onRow: (row) => setStatus(status, `Filled row ${row.rowNumber}: ${row.ticker}`),
+    });
+  };
+
   const markSessionActive = (ingestion: HoldingsIngestionFile) => {
     session.innerHTML = `Account: ${summarizeSessionAccount(ingestion)} <span aria-hidden="true">&bull;</span> Session Active <i aria-hidden="true"></i>`;
     session.classList.add('is-active');
@@ -349,9 +357,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     fillButton.disabled = true;
     setStatus(status, 'Filling the simulated destination page...');
     try {
-      await runDemoFill(demoPanel.root, packet, {
-        onRow: (row) => setStatus(status, `Filled row ${row.rowNumber}: ${row.ticker}`),
-      });
+      await runFillIntoPanel(packet);
       setStatus(
         status,
         `${packet.rowCount} eligible rows filled. ${packet.blockedCount} blocked rows were withheld.`,
