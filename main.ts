@@ -23,7 +23,14 @@ import { runDemoFill, type EmoneyFillPacket } from './paste-conductor';
 
 export const SAMPLE_CSV_INPUT = DEMO_SAMPLE_CSV;
 
-type WorkflowStep = 'load' | 'review' | 'packet' | 'fill';
+export type WorkflowStep = 'load' | 'review' | 'packet' | 'fill';
+
+// Single source of truth for the stage order a demo run walks through, so the
+// async handler has exactly one writer driving the stepper (no code after it
+// races to overwrite the stage — see demo-flow.test.cjs for the regression this pins).
+export function demoRunStepOrder(hasEligiblePacket: boolean): WorkflowStep[] {
+  return hasEligiblePacket ? ['review', 'packet', 'fill'] : ['review'];
+}
 
 interface LocalMvpOptions {
   sourceFilename?: string;
@@ -163,7 +170,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     });
     const fillStep = stepEls.get('fill');
     if (fillStep) {
-      fillStep.title = active === 'fill' ? 'Ready — run the bookmarklet on the eMoney page.' : '';
+      fillStep.title = active === 'fill' ? 'Ready — rows are entered on the destination page.' : '';
     }
   };
   setWorkflowStep('load');
@@ -180,7 +187,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     '  <li><b>1</b><span><strong>Load CSV</strong> &mdash; import a custodian holdings export.</span></li>',
     '  <li><b>2</b><span><strong>Review Holdings</strong> &mdash; every row gets an ok, review, or block verdict.</span></li>',
     '  <li><b>3</b><span><strong>Prepare Fill Packet</strong> &mdash; only eligible rows are copied into a packet.</span></li>',
-    '  <li><b>4</b><span><strong>Fill in eMoney</strong> &mdash; a bookmarklet fills the page; you click Save.</span></li>',
+    '  <li><b>4</b><span><strong>Fill the destination</strong> &mdash; rows are entered on the destination page automatically; you click Save.</span></li>',
     '</ol>',
   ].join('');
   controls.appendChild(landingCopy);
@@ -363,27 +370,43 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       setWorkflowStep('load');
       renderLedgerSkeleton(reviewRoot, 'demo-sample.csv');
       await stageLoadStatus(status, 'demo-sample.csv');
+      let preparedPacket: EmoneyFillPacket | null = null;
       const ingestion = runLocalMvp(reviewRoot, SAMPLE_CSV_INPUT, {
         sourceFilename: 'demo-sample.csv',
         onPacketPrepared: (event) => setWorkflowStep(event.copied ? 'fill' : 'packet'),
         onClipboardWrite: trackClipboardWrite,
         onFillPacketReady: (packet) => {
+          preparedPacket = packet;
           latestPacket = packet;
           fillButton.disabled = !packet;
-          if (!packet) return;
-
-          setWorkflowStep('packet');
-          withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row(s) that failed review.`;
-          destinationRoot.hidden = false;
-          if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
-          else demoPanel.reset();
-          setWorkflowStep('fill');
-          destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (packet) {
+            withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row(s) that failed review.`;
+          }
         },
       });
       markSessionActive(ingestion);
-      setWorkflowStep('review');
-      setStatus(status, 'Demo sample is ready for review.', 'success');
+
+      // Single writer for the remaining stages: walk demoRunStepOrder in
+      // order, with pacing, so the visitor watches each stage land instead
+      // of everything landing in one tick (and nothing after this loop may
+      // touch setWorkflowStep for this run).
+      for (const step of demoRunStepOrder(!!preparedPacket)) {
+        setWorkflowStep(step);
+        if (step === 'review') {
+          setStatus(status, 'Demo sample is ready for review.', 'success');
+        } else if (step === 'packet') {
+          setStatus(status, 'Preparing the eMoney Fill Packet from eligible rows...');
+        } else if (step === 'fill') {
+          setStatus(status, 'Opening the simulated destination panel...');
+          destinationRoot.hidden = false;
+          if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
+          else demoPanel.reset();
+        }
+        await delay(400);
+      }
+      if (preparedPacket) {
+        destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     } catch (err) {
       console.error('Could not load the demo sample.');
       setStatus(status, `Could not load demo sample: ${err instanceof Error ? err.message : String(err)}`, 'error');

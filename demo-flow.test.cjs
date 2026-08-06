@@ -11,6 +11,7 @@ const {
   buildAccountPreflightSummary,
 } = require('./.test-dist/review-export-surface.js');
 const { buildEmoneyFillPacket } = require('./.test-dist/paste-conductor.js');
+const { demoRunStepOrder } = require('./.test-dist/main.js');
 
 function buildDemoPacket(opts) {
   const ingestion = parseHoldingsCsvToIngestionFile(DEMO_SAMPLE_CSV, { fileId: 'demo-flow-test' });
@@ -45,6 +46,17 @@ test('the manual-review override changes the packet contents', () => {
   assert.ok(!off.holdings.some((row) => row.ticker === '$CASH$'), 'cash row absent with override OFF');
   assert.ok(on.holdings.some((row) => row.ticker === '$CASH$'), 'cash row present with override ON');
   assert.ok(!on.holdings.some((row) => row.ticker === ''), 'the MISSING_LOOKUP_KEY row still never appears with override ON');
+});
+
+test('a demo run with an eligible packet ends the stepper on "fill", not regressed to "review"', () => {
+  const order = demoRunStepOrder(true);
+  assert.equal(order[order.length - 1], 'fill', 'the stepper must end on fill, matching the visible destination panel');
+  assert.deepEqual(order, ['review', 'packet', 'fill'], 'all three post-load stages must be walked in order');
+});
+
+test('a demo run with no eligible rows stays on "review" and never claims a packet or fill stage', () => {
+  const order = demoRunStepOrder(false);
+  assert.deepEqual(order, ['review']);
 });
 
 test('the safety model is legible on the page', () => {

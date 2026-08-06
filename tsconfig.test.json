@@ -20,6 +20,7 @@
     "paste-conductor.ts",
     "emoney-browser-helper.ts",
     "demo-sample.ts",
-    "demo-destination-panel.ts"
+    "demo-destination-panel.ts",
+    "main.ts"
   ]
 }

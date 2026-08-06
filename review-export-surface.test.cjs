@@ -240,7 +240,7 @@ test('transfer rail makes included and excluded packet fields explicit', () => {
   const source = fs.readFileSync('review-export-surface.ts', 'utf8');
 
   assert.match(source, /Transfer Packet/);
-  assert.match(source, /browser bookmarklet on the visible eMoney Holdings page/);
+  assert.match(source, /fills the simulated destination panel below, or a browser bookmarklet on the real eMoney Holdings page/);
   assert.match(source, /Ticker/);
   assert.match(source, /Units/);
   assert.match(source, /Cost Basis/);

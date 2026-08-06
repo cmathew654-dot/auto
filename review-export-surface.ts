@@ -712,7 +712,7 @@ export function renderReviewExportSurface(
       packetCard.appendChild(panelTitle);
 
       const summary = document.createElement('p');
-      summary.textContent = `${activeFillPacket.rowCount} eligible rows prepared. ${activeFillPacket.blockedCount} blocked rows excluded. This packet is used with a browser bookmarklet on the visible eMoney Holdings page.`;
+      summary.textContent = `${activeFillPacket.rowCount} eligible rows prepared. ${activeFillPacket.blockedCount} blocked rows excluded. This packet fills the simulated destination panel below, or a browser bookmarklet on the real eMoney Holdings page.`;
       packetCard.appendChild(summary);
 
       const fieldGrid = document.createElement('div');
