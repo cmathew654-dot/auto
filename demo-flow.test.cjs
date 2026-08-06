@@ -13,9 +13,9 @@ const {
 const { buildEmoneyFillPacket } = require('./.test-dist/paste-conductor.js');
 const { demoRunStepOrder } = require('./.test-dist/main.js');
 
-function buildDemoPacket(opts) {
+function buildDemoPacket(opts, accountIndex = 0) {
   const ingestion = parseHoldingsCsvToIngestionFile(DEMO_SAMPLE_CSV, { fileId: 'demo-flow-test' });
-  const account = ingestion.accounts[0];
+  const account = ingestion.accounts[accountIndex];
   const payload = toAssistantPayloadForAccount(account, opts);
   const summary = buildAccountPreflightSummary(account, opts);
   const packet = buildEmoneyFillPacket(payload, { blockedCount: summary.blockedCount });
@@ -23,28 +23,39 @@ function buildDemoPacket(opts) {
 }
 
 test('demo packet (override off) carries only eligible rows, withholds review-gated and blocked rows', () => {
-  const { account, packet } = buildDemoPacket({ allowManualOverride: false });
+  [0, 1].forEach((accountIndex) => {
+    const { account, packet } = buildDemoPacket({ allowManualOverride: false }, accountIndex);
 
-  packet.holdings.forEach((row) => {
-    const holding = account.holdings.find((h) => (h.ticker ?? '') === row.ticker);
-    assert.ok(holding, `packet row ${row.ticker} should map back to a demo-sample holding`);
-    assert.ok(getHoldingEligibility(holding, { allowManualOverride: false }).eligible, `${row.ticker} should be eligible`);
+    packet.holdings.forEach((row) => {
+      const holding = account.holdings.find((h) => (h.ticker ?? '') === row.ticker);
+      assert.ok(holding, `packet row ${row.ticker} should map back to a demo-sample holding`);
+      assert.ok(getHoldingEligibility(holding, { allowManualOverride: false }).eligible, `${row.ticker} should be eligible`);
+    });
+
+    const tickers = packet.holdings.map((row) => row.ticker);
+    assert.ok(!tickers.includes(''), 'the MISSING_LOOKUP_KEY row (blank symbol) must never reach the fill packet');
+    assert.ok(!tickers.includes('$CASH$'), 'the manual-review-gated cash row must not appear with override OFF');
+
+    const withheldCount = account.holdings.length - packet.holdings.length;
+    assert.equal(packet.blockedCount, withheldCount, 'blockedCount must equal the number of withheld holdings');
   });
+});
 
-  const tickers = packet.holdings.map((row) => row.ticker);
-  assert.ok(!tickers.includes(''), 'the MISSING_LOOKUP_KEY row (blank symbol) must never reach the fill packet');
-  assert.ok(!tickers.includes('$CASH$'), 'the manual-review-gated cash row must not appear with override OFF');
+test('account 1 override-OFF packet withholds nothing', () => {
+  const { account, packet } = buildDemoPacket({ allowManualOverride: false }, 0);
 
-  const withheldCount = account.holdings.length - packet.holdings.length;
-  assert.equal(packet.blockedCount, withheldCount, 'blockedCount must equal the number of withheld holdings');
+  assert.equal(packet.blockedCount, 0, 'account 1 should withhold nothing even with override OFF');
+  assert.equal(packet.rowCount ?? packet.holdings.length, account.holdings.length, 'every account 1 row should reach the packet');
 });
 
 test('the manual-review override changes the packet contents', () => {
-  const off = buildDemoPacket({ allowManualOverride: false }).packet;
-  const on = buildDemoPacket({ allowManualOverride: true }).packet;
+  const off = buildDemoPacket({ allowManualOverride: false }, 1).packet;
+  const on = buildDemoPacket({ allowManualOverride: true }, 1).packet;
 
   assert.ok(!off.holdings.some((row) => row.ticker === '$CASH$'), 'cash row absent with override OFF');
   assert.ok(on.holdings.some((row) => row.ticker === '$CASH$'), 'cash row present with override ON');
+  assert.ok(!off.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row absent with override OFF');
+  assert.ok(on.holdings.some((row) => row.ticker === 'DMOL'), 'zero-price row present with override ON');
   assert.ok(!on.holdings.some((row) => row.ticker === ''), 'the MISSING_LOOKUP_KEY row still never appears with override ON');
 });
 
