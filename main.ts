@@ -419,17 +419,20 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   // Reserve viewport space under the fixed dock so it never covers the
   // content it is currently narrating.
-  const updateTourDockSpacing = (): void => {
+  const updateTourDockSpacing = (settled = false): void => {
     if (tourCard.hidden) {
       shell.style.paddingBottom = '';
       return;
     }
-    // The reserve must be at least a full viewport tall: a subject near the
-    // natural end of the page (e.g. the destination panel) cannot be
-    // scrolled flush to the viewport's top unless the document has that
-    // much extra scrollable room below it — the dock's own height alone
-    // isn't enough once the subject is close to the bottom of the page.
-    const reserve = Math.max(tourCard.getBoundingClientRect().height + 32, window.innerHeight);
+    const dockReserve = tourCard.getBoundingClientRect().height + 32;
+    // While a scroll is being planned, the reserve must be at least a full
+    // viewport tall: a subject near the natural end of the page (e.g. the
+    // destination panel) cannot be scrolled flush to the viewport's top
+    // unless the document has that much extra scrollable room below it.
+    // Once the scroll has settled, shrink back to just what the dock
+    // needs — otherwise that same full-viewport reserve sits as dead
+    // whitespace under a subject that's already near the page's end.
+    const reserve = settled ? dockReserve : Math.max(dockReserve, window.innerHeight);
     shell.style.paddingBottom = `${reserve}px`;
   };
   window.addEventListener('resize', () => {
@@ -670,6 +673,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         updateTourDockSpacing();
         const subject = getStageSubject(step);
         await scrollSubjectIntoView(subject);
+        updateTourDockSpacing(true);
         setHighlightedSubject(subject);
         await swapTourStep(step, tourIndex, steps.length);
         tourNextButton.disabled = false;

@@ -356,15 +356,18 @@ export function installRegulatedLedgerStyles(): void {
       }
       .ledger-tour-counter { font-size: 9px; }
       .ledger-tour-card h2 { font-size: 15px; }
-      .ledger-tour-content > p:not(.ledger-tour-proof) {
+      .ledger-tour-content > p {
         font-size: 12.5px;
         line-height: 1.4;
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
       }
-      .ledger-tour-proof { display: none; }
+      /* Copy (including trust/safety claims in .ledger-tour-proof) must
+         never be clipped. The card grows to fit, capped so it can't
+         swallow the mobile screen; overflow scrolls inside the copy area,
+         never the Next button, so the control stays reachable. */
+      .ledger-tour-content {
+        max-height: 42vh;
+        overflow-y: auto;
+      }
       .ledger-tour-card .ledger-button {
         width: 100%;
         justify-self: stretch;
@@ -377,12 +380,13 @@ export function installRegulatedLedgerStyles(): void {
     /* ── Tour subject highlight ──────────────────────────────────────── */
 
     .tour-highlight {
-      outline: 3px solid var(--accent-line);
+      outline: 3px solid var(--accent);
       outline-offset: 6px;
+      box-shadow: 0 0 0 10px var(--accent-soft);
       border-radius: var(--r-lg);
       position: relative;
       z-index: 10;
-      transition: outline-color var(--motion);
+      transition: outline-color var(--motion), box-shadow var(--motion);
     }
 
     .ledger-tour-content {
