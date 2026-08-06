@@ -37,6 +37,15 @@ test('origin reconstruction is labeled honestly and the interview page has no su
   assert.match(build, /intake-reconstruction\.html/);
 });
 
+test('build-demo stamps real git metadata into the build, never a hardcoded SHA', () => {
+  const build = fs.readFileSync('scripts/build-demo.mjs', 'utf8');
+
+  assert.match(build, /rev-parse.*--short.*HEAD/);
+  assert.match(build, /__BUILD_INFO__/);
+  assert.match(build, /GITHUB_SHA/);
+  assert.doesNotMatch(build, /"sha"\s*:\s*['"][0-9a-f]{7}['"]/);
+});
+
 test('public safety and reporting notes are present', () => {
   const disclaimer = fs.readFileSync('DISCLAIMER.md', 'utf8');
   const security = fs.readFileSync('SECURITY.md', 'utf8');
