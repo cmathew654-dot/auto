@@ -90,40 +90,38 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-|-|-|
-| DEMO-01 | — | Pending |
-| DEMO-02 | — | Pending |
-| DEMO-03 | — | Pending |
-| DEMO-04 | — | Pending |
-| DEMO-05 | — | Pending |
-| DEMO-06 | — | Pending |
-| DEMO-07 | — | Pending |
-| DEMO-08 | — | Pending |
-| SMPL-01 | — | Pending |
-| SMPL-02 | — | Pending |
-| SMPL-03 | — | Pending |
-| SMPL-04 | — | Pending |
-| VRDT-01 | — | Pending |
-| VRDT-02 | — | Pending |
-| VRDT-03 | — | Pending |
-| VRDT-04 | — | Pending |
-| VRDT-05 | — | Pending |
-| VRDT-06 | — | Pending |
-| VRDT-07 | — | Pending |
-| TRST-01 | — | Pending |
-| TRST-02 | — | Pending |
-| TRST-03 | — | Pending |
-| VERI-01 | — | Pending |
-| VERI-02 | — | Pending |
+| DEMO-01 | 1 | Pending |
+| DEMO-02 | 1 | Pending |
+| DEMO-03 | 1 | Pending |
+| DEMO-04 | 1 | Pending |
+| DEMO-05 | 1 | Pending |
+| DEMO-06 | 1 | Pending |
+| DEMO-07 | 1 | Pending |
+| DEMO-08 | 1 | Pending |
+| SMPL-01 | 1 | Pending |
+| SMPL-02 | 1 | Pending |
+| SMPL-03 | 1 | Pending |
+| SMPL-04 | 1 | Pending |
+| VRDT-01 | 2 | Pending |
+| VRDT-02 | 2 | Pending |
+| VRDT-03 | 2 | Pending |
+| VRDT-04 | 2 | Pending |
+| VRDT-05 | 2 | Pending |
+| VRDT-06 | 2 | Pending |
+| VRDT-07 | 2 | Pending |
+| TRST-01 | 1 | Pending |
+| TRST-02 | 1 | Pending |
+| TRST-03 | 3 | Pending |
+| VERI-01 | 3 | Pending |
+| VERI-02 | 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-08-05 after initial definition*
+*Last updated: 2026-08-05 after roadmap revision (demo phase reordered first)*
