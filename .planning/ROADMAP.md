@@ -36,7 +36,7 @@ naming and privacy guards, stays green.
   5. Blocked rows are visibly withheld from the destination panel while only eligible rows land.
   6. The manual-review override control visibly has something to gate.
   7. Clicking Save in the panel shows a local confirmation that never implies a real eMoney save; the safety model (browser-only processing, no project server, manual save in eMoney, synthetic demo data) is legible from the page itself; the build badge shows the real short git SHA and date instead of "Build dev".
-**Plans**: 5 plans
+**Plans**: 9 plans
 
 Plans:
 - [ ] 01-01-PLAN.md — Synthetic demo sample with a real ok/review/block verdict mix
@@ -44,6 +44,10 @@ Plans:
 - [ ] 01-03-PLAN.md — Simulated destination panel + label-driven fill driver
 - [ ] 01-04-PLAN.md — One-click four-stage run, packet handoff, withheld rows, safety copy
 - [ ] 01-05-PLAN.md — Human browser verification of the assembled demo
+- [ ] 01-06-PLAN.md — Two-account 14-row synthetic sample with a per-account verdict spread (gap closure)
+- [ ] 01-07-PLAN.md — Repeat fills reset the destination panel instead of duplicating rows (gap closure)
+- [ ] 01-08-PLAN.md — Guided-tour stage model and recruiter-legible explainer copy (gap closure)
+- [ ] 01-09-PLAN.md — Click-through tour card, Next-driven stages, per-account fills (gap closure)
 
 ### Phase 2: Verdict Engine Hardening
 **Goal**: The verdict engine handles messy real-world CSV shapes correctly, each backed by a fixture, a correct verdict, and an actionable reason string.
@@ -74,6 +78,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 (Phase 1 and Phase 2 have no depend
 
 | Phase | Plans Complete | Status | Completed |
 |-|-|-|-|
-| 1. Demo Destination Panel & Sample | 4/5 | In Progress|  |
+| 1. Demo Destination Panel & Sample | 4/9 | In Progress|  |
 | 2. Verdict Engine Hardening | 0/TBD | Not started | - |
 | 3. Verification & Public Surface Guards | 0/TBD | Not started | - |
