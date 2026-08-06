@@ -18,7 +18,7 @@ naming and privacy guards, stays green.
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Demo Destination Panel & Sample** - One-click demo fills an in-page simulated destination panel, gated by a mixed-verdict synthetic sample (all 9 plans closed 2026-08-06; human browser sign-off on 01-05 still pending)
+- [x] **Phase 1: Demo Destination Panel & Sample** - One-click demo fills an in-page simulated destination panel, gated by a mixed-verdict synthetic sample (all 9 plans closed 2026-08-06; human browser sign-off on 01-05 still pending) (completed 2026-08-06)
 - [ ] **Phase 2: Verdict Engine Hardening** - Verdict engine produces correct, actionable verdicts against messy CSV shapes
 - [ ] **Phase 3: Verification & Public Surface Guards** - Headless check and full test suite confirm the demo and public surface are correct
 
@@ -78,6 +78,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 (Phase 1 and Phase 2 have no depend
 
 | Phase | Plans Complete | Status | Completed |
 |-|-|-|-|
-| 1. Demo Destination Panel & Sample | 9/9 | Human sign-off pending |  |
+| 1. Demo Destination Panel & Sample | 9/9 | Complete    | 2026-08-06 |
 | 2. Verdict Engine Hardening | 0/TBD | Not started | - |
 | 3. Verification & Public Surface Guards | 0/TBD | Not started | - |
