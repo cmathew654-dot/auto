@@ -12,9 +12,9 @@ in PROJECT.md — it is not re-specified here.
 
 ### Demo Flow
 
-- [ ] **DEMO-01**: Visitor can run all four pipeline stages from a single button click, with no file upload, credentials, or setup
+- [x] **DEMO-01**: Visitor can run all four pipeline stages from a single button click, with no file upload, credentials, or setup
 - [x] **DEMO-02**: Visitor sees a simulated destination page as an in-page panel revealed at stage 4, without leaving the demo page
-- [ ] **DEMO-03**: Visitor can trigger the fill with a demo button that drives the paste conductor directly, with no bookmarklet install step
+- [x] **DEMO-03**: Visitor can trigger the fill with a demo button that drives the paste conductor directly, with no bookmarklet install step
 - [x] **DEMO-04**: Destination panel exposes labeled Ticker, CUSIP, Units, and Cost Basis inputs plus a Save button, matched by visible label rather than element id
 - [x] **DEMO-05**: Destination panel shows the filled rows in a table after the fill completes, so the visitor sees the result and not just the animation
 - [x] **DEMO-06**: Destination panel carries a visible banner stating it is a simulated destination page and not eMoney
@@ -26,7 +26,7 @@ in PROJECT.md — it is not re-specified here.
 - [x] **SMPL-01**: Demo sample CSV produces at least one ok, one review, and one block verdict in the same run
 - [x] **SMPL-02**: Demo sample exercises the manual-review safety gate, so the override control visibly has something to gate
 - [x] **SMPL-03**: Demo sample uses synthetic tickers, accounts, and values only
-- [ ] **SMPL-04**: Only eligible rows from the demo sample reach the destination panel; blocked rows are visibly withheld
+- [x] **SMPL-04**: Only eligible rows from the demo sample reach the destination panel; blocked rows are visibly withheld
 
 ### Verdict Engine Hardening
 
@@ -43,7 +43,7 @@ operator can act on.
 
 ### Trust Surface
 
-- [ ] **TRST-01**: Safety model is legible from the demo page itself — browser processing, no project server, manual save in eMoney, synthetic demo data
+- [x] **TRST-01**: Safety model is legible from the demo page itself — browser processing, no project server, manual save in eMoney, synthetic demo data
 - [x] **TRST-02**: Build badge on the public demo shows the real short git SHA and build date instead of falling back to "Build dev"
 - [ ] **TRST-03**: Public surface never says "Injector"; the existing naming and privacy guards stay green
 
@@ -92,9 +92,9 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 
 | Requirement | Phase | Status |
 |-|-|-|
-| DEMO-01 | 1 | Pending |
+| DEMO-01 | 1 | Complete |
 | DEMO-02 | 1 | Complete |
-| DEMO-03 | 1 | Pending |
+| DEMO-03 | 1 | Complete |
 | DEMO-04 | 1 | Complete |
 | DEMO-05 | 1 | Complete |
 | DEMO-06 | 1 | Complete |
@@ -103,7 +103,7 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 | SMPL-01 | 1 | Complete |
 | SMPL-02 | 1 | Complete |
 | SMPL-03 | 1 | Complete |
-| SMPL-04 | 1 | Pending |
+| SMPL-04 | 1 | Complete |
 | VRDT-01 | 2 | Pending |
 | VRDT-02 | 2 | Pending |
 | VRDT-03 | 2 | Pending |
@@ -111,7 +111,7 @@ Acknowledged, deferred. Drawn from `.planning/codebase/CONCERNS.md`.
 | VRDT-05 | 2 | Pending |
 | VRDT-06 | 2 | Pending |
 | VRDT-07 | 2 | Pending |
-| TRST-01 | 1 | Pending |
+| TRST-01 | 1 | Complete |
 | TRST-02 | 1 | Complete |
 | TRST-03 | 3 | Pending |
 | VERI-01 | 3 | Pending |
