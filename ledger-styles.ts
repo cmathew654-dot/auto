@@ -331,6 +331,9 @@ export function installRegulatedLedgerStyles(): void {
       border: 1px solid var(--accent-line);
       border-radius: var(--r-lg);
       box-shadow: var(--shadow-lift);
+      position: sticky;
+      top: var(--s-4);
+      z-index: 20;
     }
 
     .ledger-tour-card[hidden] { display: none; }

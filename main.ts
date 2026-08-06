@@ -359,6 +359,13 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     tourCard.hidden = false;
   };
 
+  // Visible feedback: without this, the card and its stage progress can sit
+  // below the fold and the run looks like nothing happened.
+  const scrollTourCardIntoView = (): void => {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    tourCard.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+
   const destinationRoot = document.createElement('section');
   destinationRoot.id = 'demo-destination-root';
   destinationRoot.className = 'ledger-panel';
@@ -524,13 +531,13 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         if (step.fillAccountNumber) {
           destinationRoot.hidden = false;
           if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
-          destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
           tourNextButton.disabled = true;
           setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
           await runFillIntoPanel(packetsByAccount.get(step.fillAccountNumber)!);
           tourNextButton.disabled = false;
         }
         renderTourStep(step, tourIndex, steps.length);
+        scrollTourCardIntoView();
         if (step.stage === 'review') {
           setStatus(status, 'Demo sample is ready for review.', 'success');
         } else if (step.stage === 'packet') {

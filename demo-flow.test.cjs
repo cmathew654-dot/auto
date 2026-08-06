@@ -198,3 +198,20 @@ test('ledger-styles.ts styles the tour card and carries no eMoney trade dress', 
   assert.match(stylesSource, /\.ledger-tour-card/);
   assert.doesNotMatch(stylesSource, /emoney/i);
 });
+
+test('the tour card scrolls into view on every stage advance and stays sticky above the fold', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  assert.match(mainSource, /scrollTourCardIntoView/, 'a scroll-into-view helper must exist for the tour card');
+  assert.match(mainSource, /prefers-reduced-motion/, 'scroll behavior must respect prefers-reduced-motion');
+
+  const advanceStart = mainSource.indexOf('const advanceTour = async');
+  const advanceEnd = mainSource.indexOf('\n      };', advanceStart);
+  const advanceBody = mainSource.slice(advanceStart, advanceEnd);
+  assert.match(advanceBody, /scrollTourCardIntoView\(\)/, 'every stage advance must call the scroll-into-view helper');
+
+  const stylesSource = fs.readFileSync(path.join(__dirname, 'ledger-styles.ts'), 'utf8');
+  const cardStart = stylesSource.indexOf('.ledger-tour-card {');
+  const cardEnd = stylesSource.indexOf('}', cardStart);
+  const cardRule = stylesSource.slice(cardStart, cardEnd);
+  assert.match(cardRule, /position:\s*sticky/, 'the tour card must stay visible (sticky) as the panel below it fills');
+});
