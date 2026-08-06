@@ -11,7 +11,7 @@ const {
   buildAccountPreflightSummary,
 } = require('./.test-dist/review-export-surface.js');
 const { buildEmoneyFillPacket } = require('./.test-dist/paste-conductor.js');
-const { demoRunStepOrder } = require('./.test-dist/main.js');
+const { demoRunStepOrder, buildDemoTourSteps } = require('./.test-dist/main.js');
 
 function buildDemoPacket(opts, accountIndex = 0) {
   const ingestion = parseHoldingsCsvToIngestionFile(DEMO_SAMPLE_CSV, { fileId: 'demo-flow-test' });
@@ -68,6 +68,99 @@ test('a demo run with an eligible packet ends the stepper on "fill", not regress
 test('a demo run with no eligible rows stays on "review" and never claims a packet or fill stage', () => {
   const order = demoRunStepOrder(false);
   assert.deepEqual(order, ['review']);
+});
+
+function buildDemoTourAccounts(opts = { allowManualOverride: false }) {
+  const ingestion = parseHoldingsCsvToIngestionFile(DEMO_SAMPLE_CSV, { fileId: 'demo-flow-test' });
+  return ingestion.accounts.map((account) => {
+    const summary = buildAccountPreflightSummary(account, opts);
+    return {
+      accountNumber: account.accountNumber,
+      totalRows: account.holdings.length,
+      eligibleCount: summary.eligibleCount,
+      withheldCount: summary.blockedCount,
+    };
+  });
+}
+
+test('the guided tour walks load -> review -> packet -> one fill per account, in sample order', () => {
+  const accounts = buildDemoTourAccounts();
+  const steps = buildDemoTourSteps(accounts);
+
+  assert.deepEqual(steps.map((s) => s.stage), ['load', 'review', 'packet', 'fill', 'fill']);
+  assert.deepEqual(
+    steps.filter((s) => s.fillAccountNumber).map((s) => s.fillAccountNumber),
+    accounts.map((a) => a.accountNumber)
+  );
+  assert.equal(
+    steps.filter((s) => s.fillAccountNumber).length,
+    accounts.length,
+    'exactly one fill step per account'
+  );
+});
+
+test('every tour step has non-empty copy, and only the last step reads Done', () => {
+  const steps = buildDemoTourSteps(buildDemoTourAccounts());
+
+  steps.forEach((step, index) => {
+    assert.ok(step.title && step.title.trim(), `step ${index} must have a title`);
+    assert.ok(step.body && step.body.trim(), `step ${index} must have a body`);
+    assert.ok(step.proof && step.proof.trim(), `step ${index} must have a proof`);
+    assert.ok(step.nextLabel && step.nextLabel.trim(), `step ${index} must have a nextLabel`);
+    if (index < steps.length - 1) {
+      assert.notEqual(step.nextLabel, 'Done', `only the last step should read Done (step ${index} did)`);
+    }
+  });
+  assert.equal(steps[steps.length - 1].nextLabel, 'Done');
+});
+
+test('clean vs. exception account fill copy carries the contrast', () => {
+  const accounts = buildDemoTourAccounts();
+  const steps = buildDemoTourSteps(accounts);
+  const fillSteps = steps.filter((s) => s.stage === 'fill');
+
+  const cleanAccount = accounts.find((a) => a.withheldCount === 0);
+  const exceptionAccount = accounts.find((a) => a.withheldCount > 0);
+  assert.ok(cleanAccount, 'sample must contain a clean account for this test to be meaningful');
+  assert.ok(exceptionAccount, 'sample must contain an exception account for this test to be meaningful');
+
+  const cleanStep = fillSteps.find((s) => s.fillAccountNumber === cleanAccount.accountNumber);
+  const exceptionStep = fillSteps.find((s) => s.fillAccountNumber === exceptionAccount.accountNumber);
+  const cleanCopy = `${cleanStep.body} ${cleanStep.proof}`;
+  const exceptionCopy = `${exceptionStep.body} ${exceptionStep.proof}`;
+
+  assert.doesNotMatch(cleanCopy, /withheld|held back|blocked/i, 'clean account copy must not claim anything was withheld');
+
+  assert.match(exceptionCopy, new RegExp(String(exceptionAccount.withheldCount)), 'exception copy must state the withheld count');
+  assert.match(exceptionCopy, /manual.review/i, 'exception copy must reference the manual-review stop');
+  assert.match(exceptionCopy, /ticker.*cusip|cusip.*ticker/i, 'exception copy must reference the missing ticker/CUSIP stop');
+});
+
+test('tour copy never overclaims safety and states Save is a manual click', () => {
+  const steps = buildDemoTourSteps(buildDemoTourAccounts());
+
+  steps.forEach((step) => {
+    const copy = `${step.title} ${step.body} ${step.proof}`;
+    assert.doesNotMatch(copy, /saved to eMoney/i);
+    assert.doesNotMatch(copy, /successfully saved/i);
+    assert.doesNotMatch(copy, /save is automatic/i);
+  });
+
+  const fillSteps = steps.filter((s) => s.stage === 'fill');
+  assert.ok(
+    fillSteps.some((s) => /human click|manual click/i.test(s.body) && /simulat/i.test(s.body)),
+    'at least one fill step must state Save is a manual click and the panel is simulated'
+  );
+});
+
+test('the tour never claims a packet or fill stage when nothing cleared review', () => {
+  assert.deepEqual(buildDemoTourSteps([]).map((s) => s.stage), ['load', 'review']);
+});
+
+test('tour copy stays in plain language, no raw issue codes leak to the visitor', () => {
+  const steps = buildDemoTourSteps(buildDemoTourAccounts());
+  const allCopy = steps.map((s) => `${s.title} ${s.body} ${s.proof}`).join(' ');
+  assert.doesNotMatch(allCopy, /CASH_SPECIAL_HANDLING|MISSING_LOOKUP_KEY|ZERO_PRICE_NONZERO_VALUE_EXCEPTION/);
 });
 
 test('the safety model is legible on the page', () => {
