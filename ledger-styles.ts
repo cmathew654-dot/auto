@@ -446,6 +446,57 @@ export function installRegulatedLedgerStyles(): void {
       margin-top: var(--s-2);
     }
 
+    /* ── Tour "visible work" sequence ─────────────────────────────────── */
+
+    .ledger-tour-work {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+
+    .ledger-tour-work[hidden] { display: none; }
+
+    .ledger-tour-work li {
+      display: flex;
+      align-items: center;
+      gap: var(--s-2);
+      color: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      opacity: 0.45;
+      transform: translateX(-4px);
+      transition: opacity var(--motion), transform var(--motion), color var(--motion);
+    }
+
+    .ledger-tour-work li::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--line-strong);
+      flex: 0 0 auto;
+      transition: background var(--motion);
+    }
+
+    .ledger-tour-work li.is-active {
+      opacity: 1;
+      transform: translateX(0);
+      color: var(--ink);
+    }
+
+    .ledger-tour-work li.is-active::before {
+      background: var(--accent);
+    }
+
+    /* ── Tour held-row callout ────────────────────────────────────────── */
+
+    .tour-held-row td {
+      background: var(--block-soft);
+      transition: background var(--motion);
+    }
+
     /* ── Panels ───────────────────────────────────────────────────────── */
 
     .ledger-panel {

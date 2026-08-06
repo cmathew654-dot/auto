@@ -40,6 +40,8 @@ export interface DemoTourStep {
   proof: string;            // what it proves
   nextLabel: string;        // Next button text; last step reads "Done"
   fillAccountNumber?: string; // when set, advancing INTO this step fills that account first
+  workSteps: string[];      // named, real pipeline steps ticked through before the payoff
+  holdsPreview?: { title: string; body: string; proof: string }; // shown before a fill with holds
 }
 
 // Pure step model for the click-through guided tour. No DOM, no timers, no
@@ -54,6 +56,11 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       body: 'A synthetic holdings file was just read and parsed locally, in this browser tab.',
       proof: 'No upload, no account, no project server involved — the file never leaves the browser.',
       nextLabel: 'Next: see every row get a verdict',
+      workSteps: [
+        'Reading demo-sample.csv locally, in this browser tab',
+        'Parsing holdings rows and normalizing account fields',
+        'Running preflight gates: missing lookup keys, cash rows, zero-price exceptions',
+      ],
     },
     {
       id: 'review',
@@ -62,6 +69,12 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       body: `All ${totalRows} rows across ${accounts.length} account${accounts.length === 1 ? '' : 's'} were checked and given a clear pass or hold decision.`,
       proof: 'A human sees every verdict before anything is entered anywhere.',
       nextLabel: accounts.length === 0 ? 'Done' : 'Next: see what gets packaged',
+      workSteps: [
+        'Checking every row for a ticker or CUSIP lookup key',
+        'Flagging cash rows for manual review',
+        'Checking for zero-price-with-value exceptions',
+        'Assigning a pass or hold verdict to every row',
+      ],
     },
   ];
 
@@ -77,6 +90,10 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
     body: 'Only the rows that cleared review are bundled into the fill packet for the destination page.',
     proof: 'Blocked rows physically cannot reach the destination page.',
     nextLabel: 'Next: fill the first account',
+    workSteps: [
+      "Filtering out every row that didn't clear review",
+      'Bundling only approved rows into the fill packet',
+    ],
   });
 
   accounts.forEach((account, index) => {
@@ -88,6 +105,13 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
     const proof = clean
       ? 'This is what a clean account looks like — the baseline for the next one.'
       : 'The panel above shows only what passed: the gates are doing judgment, not breaking.';
+    const fillWorkSteps = clean
+      ? ["Matching packet rows to the destination page's fields", 'Copying only ticker, units, and cost basis for each eligible row']
+      : [
+          'Confirming blocked rows are excluded from the packet',
+          "Matching packet rows to the destination page's fields",
+          'Copying only ticker, units, and cost basis for each eligible row',
+        ];
     steps.push({
       id: `fill-${account.accountNumber}`,
       stage: 'fill',
@@ -98,6 +122,14 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       proof,
       nextLabel: isLast ? 'Done' : 'Next: fill the next account',
       fillAccountNumber: account.accountNumber,
+      workSteps: fillWorkSteps,
+      holdsPreview: clean
+        ? undefined
+        : {
+            title: `First: the ${account.withheldCount} row(s) that don't go`,
+            body: `Account ${account.accountNumber} is holding back ${account.withheldCount} of ${account.totalRows} rows before anything reaches the destination page — some need a manual-review override, and some (like a cash row with no ticker or CUSIP) can never be auto-entered.`,
+            proof: 'Every blocked row stays visible with its reason. Nothing here is hidden, only withheld.',
+          },
     });
   });
 
@@ -346,7 +378,10 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const tourBody = document.createElement('p');
   const tourProof = document.createElement('p');
   tourProof.className = 'ledger-tour-proof';
-  tourContent.append(tourCounter, tourTitle, tourBody, tourProof);
+  const tourWork = document.createElement('ul');
+  tourWork.className = 'ledger-tour-work';
+  tourWork.hidden = true;
+  tourContent.append(tourCounter, tourTitle, tourBody, tourProof, tourWork);
   const tourNextButton = document.createElement('button');
   tourNextButton.type = 'button';
   tourNextButton.className = 'ledger-button';
@@ -377,6 +412,53 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     await wait(FADE_MS);
     renderTourStep(step, index, total);
     void tourContent.offsetHeight; // force layout so the fade-in transition runs
+    tourContent.classList.remove('is-swapping');
+    await wait(FADE_MS);
+  };
+
+  // Named, honest steps ticking in before a stage's payoff -- the labor
+  // illusion: visibly showing real work builds trust and gives the eye
+  // time to orient. Collapses instantly under prefers-reduced-motion.
+  const WORK_STAGGER_MS = 150;
+  const runWorkingSequence = async (workSteps: string[]): Promise<void> => {
+    if (workSteps.length === 0 || reduceMotion()) return;
+    tourTitle.hidden = true;
+    tourBody.hidden = true;
+    tourProof.hidden = true;
+    tourWork.innerHTML = '';
+    tourWork.hidden = false;
+    const items = workSteps.map((text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      tourWork.appendChild(li);
+      return li;
+    });
+    for (const li of items) {
+      li.classList.add('is-active');
+      await wait(WORK_STAGGER_MS);
+    }
+    await wait(Math.max(400, 1300 - workSteps.length * WORK_STAGGER_MS));
+    tourWork.hidden = true;
+    tourTitle.hidden = false;
+    tourBody.hidden = false;
+    tourProof.hidden = false;
+  };
+
+  // A brief, deliberate detour in the dock's copy -- narrates the
+  // held-rows beat before the tour returns to the step's own copy.
+  const showDockMessage = async (msg: { title: string; body: string; proof: string }): Promise<void> => {
+    if (reduceMotion()) {
+      tourTitle.textContent = msg.title;
+      tourBody.textContent = msg.body;
+      tourProof.textContent = msg.proof;
+      return;
+    }
+    tourContent.classList.add('is-swapping');
+    await wait(FADE_MS);
+    tourTitle.textContent = msg.title;
+    tourBody.textContent = msg.body;
+    tourProof.textContent = msg.proof;
+    void tourContent.offsetHeight;
     tourContent.classList.remove('is-swapping');
     await wait(FADE_MS);
   };
@@ -484,7 +566,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   footer.innerHTML = [
     '<strong>BROWSER PROCESSING <span aria-hidden="true">&bull;</span> NO PROJECT SERVER</strong>',
     '<span>The current build does not send holdings data to a project server. Use only authorized data. Save in eMoney is always manual.</span>',
-    '<span>The demo sample above is fabricated data; saving in the real system is always a manual operator click.</span>',
+    '<span>The demo sample above uses real market ticker symbols with fabricated accounts and positions &mdash; no real client data; saving in the real system is always a manual operator click.</span>',
   ].join('');
   shell.appendChild(footer);
 
@@ -523,7 +605,10 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       case 'load':
         return actionCard;
       case 'review':
-        return reviewRoot;
+        // reviewRoot can run well past viewport height with both accounts
+        // shown; ring a single account's height-capped table instead so
+        // the highlight's edges stay on screen.
+        return reviewRoot.querySelector<HTMLElement>('.holdings-table-wrap') ?? reviewRoot;
       case 'packet':
         return reviewRoot.querySelector<HTMLElement>('.transfer-rail') ?? reviewRoot;
       case 'fill':
@@ -536,6 +621,9 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     demoPanel.reset(); // idempotent fill: never append onto a prior fill's rows
     await runDemoFill(demoPanel.root, packet, {
       onRow: (row) => setStatus(status, `Filled row ${row.rowNumber}: ${row.ticker}`),
+      // Visible, staggered landing (~130ms/row) so the viewer watches rows
+      // appear one at a time instead of finding the table already full.
+      stepDelayMs: reduceMotion() ? 0 : 130,
     });
   };
 
@@ -658,13 +746,16 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         const step = steps[tourIndex];
         tourNextButton.disabled = true;
         setWorkflowStep(step.stage);
+
+        // Prep any DOM the step needs BEFORE anything scrolls, so the
+        // scroll settles against the final layout -- and leave the
+        // destination panel empty so nothing fills until the scroll has
+        // fully settled (a fill racing the scroll is what caused the old
+        // clip-then-correct jump).
         if (step.fillAccountNumber) {
           destinationRoot.hidden = false;
           if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
-          setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
-          // The action this step narrates must fully finish before anything
-          // below shows or claims it happened.
-          await runFillIntoPanel(packetsByAccount.get(step.fillAccountNumber)!);
+          demoPanel.reset();
         }
         // One movement at a time: focus the layout on this stage's subject,
         // settle a single deliberate scroll, THEN highlight, THEN swap the
@@ -675,6 +766,41 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         await scrollSubjectIntoView(subject);
         updateTourDockSpacing(true);
         setHighlightedSubject(subject);
+
+        await runWorkingSequence(step.workSteps);
+
+        if (step.fillAccountNumber && step.holdsPreview) {
+          // Beat 1 of 2: show what's being withheld, and why, before showing what lands.
+          const heldRows = Array.from(
+            reviewRoot.querySelectorAll<HTMLElement>('.account-panel:not([hidden]) .row-blocked')
+          );
+          const holdsSubject =
+            heldRows[0]?.closest<HTMLElement>('.holdings-table-wrap') ??
+            reviewRoot.querySelector<HTMLElement>('.account-panel:not([hidden]) .holdings-table-wrap') ??
+            reviewRoot;
+          updateTourDockSpacing();
+          await scrollSubjectIntoView(holdsSubject);
+          updateTourDockSpacing(true);
+          setHighlightedSubject(holdsSubject);
+          heldRows.forEach((row) => row.classList.add('tour-held-row'));
+          await showDockMessage(step.holdsPreview);
+          await wait(reduceMotion() ? 0 : 1400);
+          heldRows.forEach((row) => row.classList.remove('tour-held-row'));
+
+          // Beat 2 of 2: back to the destination panel for the fill itself.
+          updateTourDockSpacing();
+          await scrollSubjectIntoView(subject);
+          updateTourDockSpacing(true);
+          setHighlightedSubject(subject);
+        }
+
+        if (step.fillAccountNumber) {
+          setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
+          // The action this step narrates must fully finish before anything
+          // below shows or claims it happened.
+          await runFillIntoPanel(packetsByAccount.get(step.fillAccountNumber)!);
+        }
+
         await swapTourStep(step, tourIndex, steps.length);
         tourNextButton.disabled = false;
         if (step.stage === 'review') {
