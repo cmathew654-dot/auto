@@ -36,7 +36,14 @@ naming and privacy guards, stays green.
   5. Blocked rows are visibly withheld from the destination panel while only eligible rows land.
   6. The manual-review override control visibly has something to gate.
   7. Clicking Save in the panel shows a local confirmation that never implies a real eMoney save; the safety model (browser-only processing, no project server, manual save in eMoney, synthetic demo data) is legible from the page itself; the build badge shows the real short git SHA and date instead of "Build dev".
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Synthetic demo sample with a real ok/review/block verdict mix
+- [ ] 01-02-PLAN.md — Stamp the real git SHA and build date into the demo build badge
+- [ ] 01-03-PLAN.md — Simulated destination panel + label-driven fill driver
+- [ ] 01-04-PLAN.md — One-click four-stage run, packet handoff, withheld rows, safety copy
+- [ ] 01-05-PLAN.md — Human browser verification of the assembled demo
 
 ### Phase 2: Verdict Engine Hardening
 **Goal**: The verdict engine handles messy real-world CSV shapes correctly, each backed by a fixture, a correct verdict, and an actionable reason string.
@@ -67,6 +74,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 (Phase 1 and Phase 2 have no depend
 
 | Phase | Plans Complete | Status | Completed |
 |-|-|-|-|
-| 1. Demo Destination Panel & Sample | 0/TBD | Not started | - |
+| 1. Demo Destination Panel & Sample | 0/5 | Not started | - |
 | 2. Verdict Engine Hardening | 0/TBD | Not started | - |
 | 3. Verification & Public Surface Guards | 0/TBD | Not started | - |
