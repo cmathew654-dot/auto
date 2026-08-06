@@ -380,7 +380,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     ['Storage', 'No auto-save'],
     ['Network', 'No project server'],
     ['eMoney Save', 'Manual'],
-    ['Demo data', 'Synthetic only'],
+    ['Demo data', 'Real symbols, fabricated accounts'],
   ].forEach(([label, value]) => {
     const check = document.createElement('div');
     check.className = 'ledger-check';
@@ -470,13 +470,24 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   const TYPE_CHAR_MS = 11;
   const TYPE_LINE_PAUSE_MS = 160;
   const TYPE_NEXT_LINE_GAP_MS = 110;
+  // The closing report is a recap of things already seen in-stage, so its
+  // line-by-line cadence runs faster than a live stage transcript -- same
+  // per-character rate, tighter pauses between lines.
+  const TYPE_LINE_PAUSE_FAST_MS = 60;
+  const TYPE_NEXT_LINE_GAP_FAST_MS = 35;
   // keepVisible: the closing beat's transcript IS the session report (item
   // 6) -- it must stay on screen once typed, framed by the closing title/
   // body/proof, rather than typing in and then vanishing before the visitor
   // ever presses the button that claims to "close" it.
-  const runWorkingSequence = async (workSteps: string[], options?: { keepVisible?: boolean }): Promise<void> => {
+  const runWorkingSequence = async (
+    workSteps: string[],
+    options?: { keepVisible?: boolean; append?: boolean; fast?: boolean; lineClass?: string }
+  ): Promise<void> => {
     if (workSteps.length === 0) return;
     const keepVisible = options?.keepVisible ?? false;
+    const append = options?.append ?? false;
+    const linePauseMs = options?.fast ? TYPE_LINE_PAUSE_FAST_MS : TYPE_LINE_PAUSE_MS;
+    const nextLineGapMs = options?.fast ? TYPE_NEXT_LINE_GAP_FAST_MS : TYPE_NEXT_LINE_GAP_MS;
     // A persistent report needs a shorter clamp than a transient stage's
     // copy -- it stays on screen indefinitely, so it must leave enough
     // band above the dock for the closing subject to fit without overlap.
@@ -485,13 +496,14 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     tourTitle.hidden = true;
     tourBody.hidden = true;
     tourProof.hidden = true;
-    tourWork.innerHTML = '';
+    if (!append) tourWork.innerHTML = '';
     tourWork.hidden = false;
 
     if (reduceMotion()) {
       workSteps.forEach((text) => {
         const li = document.createElement('li');
         li.className = 'is-active is-done';
+        if (options?.lineClass) li.classList.add(options.lineClass);
         li.textContent = text;
         tourWork.appendChild(li);
       });
@@ -506,6 +518,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       const text = workSteps[lineIndex];
       const li = document.createElement('li');
       li.classList.add('is-active');
+      if (options?.lineClass) li.classList.add(options.lineClass);
       const textSpan = document.createElement('span');
       textSpan.className = 'ledger-tour-work-text';
       const cursor = document.createElement('span');
@@ -518,13 +531,13 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         tourContent.scrollTop = tourContent.scrollHeight;
         await wait(TYPE_CHAR_MS);
       }
-      await wait(TYPE_LINE_PAUSE_MS);
+      await wait(linePauseMs);
       cursor.remove();
       li.classList.add('is-done');
       // No gap after the LAST line -- that gap was dead air with nothing
       // left to wait for (item 1: stage 1's post-typing pause).
       if (lineIndex < workSteps.length - 1) {
-        await wait(TYPE_NEXT_LINE_GAP_MS);
+        await wait(nextLineGapMs);
       }
     }
     await wait(60);
@@ -557,7 +570,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   // corrective camera move is ever needed.
   const scrollTargetForSubject = (
     subject: HTMLElement,
-    overrides?: { dockTop?: number; subjectHeight?: number }
+    overrides?: { dockTop?: number; subjectHeight?: number; maxY?: number }
   ): number => {
     const rect = subject.getBoundingClientRect();
     const headerBottom = Math.max(0, appHeader.getBoundingClientRect().bottom);
@@ -575,7 +588,18 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     idealTop = Math.min(idealTop, bandBottom - subjectHeight);
     idealTop = Math.max(idealTop, bandTop);
     const delta = rect.top - idealTop;
-    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    // maxY defaults to what's scrollable RIGHT NOW, but a caller mid-tour
+    // should pass the PREDICTED, post-settle maxY instead (see advanceTour):
+    // the temporary full-viewport dock reserve inflates the document just
+    // long enough to let the camera reach subjects near the page's end,
+    // then retracts once the scroll settles. Clamping against the inflated,
+    // temporary maxY let the target land somewhere that stopped being
+    // scrollable the instant the reserve retracted, so the browser silently
+    // force-clamped scrollY back -- an un-animated jump that read as a
+    // "blip" (item 2). Clamping against the predicted settled maxY up
+    // front means the chosen target is already valid after the retraction,
+    // so nothing has to snap back.
+    const maxY = overrides?.maxY ?? Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     return Math.max(0, Math.min(maxY, window.scrollY + delta));
   };
 
@@ -607,14 +631,25 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const scrollSubjectIntoView = (
     subject: HTMLElement,
-    overrides?: { dockTop?: number; subjectHeight?: number }
+    overrides?: { dockTop?: number; subjectHeight?: number; maxY?: number }
   ): Promise<void> => animateScrollTo(scrollTargetForSubject(subject, overrides));
 
-  // Predicts the dock's top edge for a step BEFORE that step's copy is
-  // actually displayed, by writing it in, measuring, then writing the
-  // previous content straight back -- all synchronously, so the browser
-  // never gets a chance to paint the intermediate state.
-  const predictDockTop = (step: DemoTourStep, index: number, total: number): number => {
+  // Predicts the dock's top edge AND height for a step BEFORE that step's
+  // copy is actually displayed, by writing it in, measuring, then writing
+  // the previous content straight back -- all synchronously, so the browser
+  // never gets a chance to paint the intermediate state. Both values are
+  // needed: top for the scroll target, height so the page's bottom-padding
+  // reserve can be set to its FINAL resting size immediately, instead of
+  // being computed from the still-showing previous step's (stale) height
+  // and then corrected again once the new copy actually swaps in -- that
+  // stale-then-corrected padding change was shrinking the document out from
+  // under an already-settled scroll position, and the browser's own
+  // scroll-clamp on that shrink was the visible "blip" (item 2).
+  const predictDockMetrics = (
+    step: DemoTourStep,
+    index: number,
+    total: number
+  ): { top: number; height: number } => {
     const prev = {
       hidden: tourCard.hidden,
       counter: tourCounter.textContent,
@@ -638,7 +673,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     tourWork.hidden = true;
     tourNextButton.textContent = step.nextLabel;
 
-    const dockTop = tourCard.getBoundingClientRect().top;
+    const rect = tourCard.getBoundingClientRect();
+    const metrics = { top: rect.top, height: rect.height };
 
     tourCard.hidden = prev.hidden;
     tourCounter.textContent = prev.counter;
@@ -651,7 +687,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     tourWork.hidden = prev.workHidden;
     tourNextButton.textContent = prev.nextLabel;
 
-    return dockTop;
+    return metrics;
   };
 
   // Predicts a fill stage's destination table height once every eligible
@@ -682,12 +718,12 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   // Reserve viewport space under the fixed dock so it never covers the
   // content it is currently narrating.
-  const updateTourDockSpacing = (settled = false): void => {
+  const updateTourDockSpacing = (settled = false, predictedDockHeight?: number): number => {
     if (tourCard.hidden) {
       shell.style.paddingBottom = '';
-      return;
+      return 0;
     }
-    const dockReserve = tourCard.getBoundingClientRect().height + 32;
+    const dockReserve = (predictedDockHeight ?? tourCard.getBoundingClientRect().height) + 32;
     // While a scroll is being planned, the reserve must be at least a full
     // viewport tall: a subject near the natural end of the page (e.g. the
     // destination panel) cannot be scrolled flush to the viewport's top
@@ -697,6 +733,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     // whitespace under a subject that's already near the page's end.
     const reserve = settled ? dockReserve : Math.max(dockReserve, window.innerHeight);
     shell.style.paddingBottom = `${reserve}px`;
+    return reserve;
   };
   window.addEventListener('resize', () => {
     if (!tourCard.hidden) updateTourDockSpacing();
@@ -1025,8 +1062,20 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
         // keepVisible: this transcript IS the session report named by the
         // "Close the report" button below -- it must still be on screen
-        // when that button appears (item 6).
-        await runWorkingSequence(closingLines, { keepVisible: true });
+        // when that button appears (item 6). fast: this is a recap of
+        // things already seen in-stage, so it moves quicker than a live
+        // stage transcript.
+        await runWorkingSequence(closingLines, { keepVisible: true, fast: true });
+
+        // One conclusive, visually distinct line closes the report -- a
+        // restrained, factual outcome statement, not another enumerated row.
+        const summaryLine = `${totalRows} processed, ${totalEligible} landed, ${totalWithheld} held -- nothing saved without a human click`;
+        await runWorkingSequence([summaryLine], {
+          keepVisible: true,
+          append: true,
+          fast: true,
+          lineClass: 'is-summary',
+        });
 
         // The persistent report (keepVisible) makes the dock taller than
         // the scroll above accounted for -- re-check and correct overlap,
@@ -1108,19 +1157,51 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         // settle a single deliberate scroll, THEN highlight, THEN swap the
         // dock's "what just happened" copy — never simultaneously.
         applyStageFocus(step);
-        updateTourDockSpacing();
         const subject = getStageSubject(step);
         // Predict the dock's FINAL height (this step's copy, not the
         // still-showing previous step's) and, for a fill stage, the
         // subject's FINAL height (every row landed, not the empty table
         // that's on screen right now) so the one scroll below already
         // lands correctly -- no second, corrective camera move needed.
-        const predictedDockTop = predictDockTop(step, tourIndex, steps.length);
+        const predictedDock = predictDockMetrics(step, tourIndex, steps.length);
+        // The unsettled reserve (below) temporarily inflates the page so a
+        // subject near its natural end can still be scrolled flush to the
+        // top. That inflation always retracts once the scroll settles
+        // (updateTourDockSpacing(true, ...) further down) -- so a target
+        // chosen against the INFLATED scrollable range can stop being
+        // reachable the instant it retracts, and the browser silently
+        // force-clamps scrollY back to what's left. That un-animated snap
+        // was the visible "blip" (item 2). Fix: compute what the page's
+        // scrollable range will be AFTER it settles, right now, and clamp
+        // the scroll target against THAT -- so the chosen target is already
+        // valid post-retraction and nothing has to snap back.
+        const unsettledReserve = updateTourDockSpacing(false, predictedDock.height);
+        const settledReserve = predictedDock.height + 32;
+        // Only the FIRST-ever reveal (dock still hidden going into this
+        // scroll) skips the inflation: with no reserve applied yet, the
+        // document's current scrollable range already IS what it will be
+        // during this scroll -- the dock only appears afterward, via
+        // swapTourStep. Inflating maxY here targeted a Y the page couldn't
+        // actually reach yet, so the browser silently clamped the real
+        // scroll to 0 while the animation still burned its full duration
+        // chasing an unreachable target -- a needless ~1.5s stall on stage
+        // 1 specifically.
+        const settledMaxY =
+          unsettledReserve > 0
+            ? Math.max(
+                0,
+                document.documentElement.scrollHeight - unsettledReserve + settledReserve - window.innerHeight
+              )
+            : Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
         const predictedSubjectHeight = step.fillAccountNumber
           ? await predictFillSubjectHeight(step.fillAccountNumber)
           : undefined;
-        await scrollSubjectIntoView(subject, { dockTop: predictedDockTop, subjectHeight: predictedSubjectHeight });
-        updateTourDockSpacing(true);
+        await scrollSubjectIntoView(subject, {
+          dockTop: predictedDock.top,
+          subjectHeight: predictedSubjectHeight,
+          maxY: settledMaxY,
+        });
+        updateTourDockSpacing(true, predictedDock.height);
         setHighlightedSubject(subject);
 
         if (step.holdsForAccount) {
