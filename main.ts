@@ -338,17 +338,23 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   tourCard.hidden = true;
   tourCard.setAttribute('role', 'region');
   tourCard.setAttribute('aria-live', 'polite');
+  const tourContent = document.createElement('div');
+  tourContent.className = 'ledger-tour-content';
   const tourCounter = document.createElement('p');
   tourCounter.className = 'ledger-tour-counter';
   const tourTitle = document.createElement('h2');
   const tourBody = document.createElement('p');
   const tourProof = document.createElement('p');
   tourProof.className = 'ledger-tour-proof';
+  tourContent.append(tourCounter, tourTitle, tourBody, tourProof);
   const tourNextButton = document.createElement('button');
   tourNextButton.type = 'button';
   tourNextButton.className = 'ledger-button';
-  tourCard.append(tourCounter, tourTitle, tourBody, tourProof, tourNextButton);
+  tourCard.append(tourContent, tourNextButton);
   shell.appendChild(tourCard);
+
+  const reduceMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   const renderTourStep = (step: DemoTourStep, index: number, total: number): void => {
     tourCounter.textContent = `Stage ${index + 1} of ${total}`;
@@ -359,11 +365,93 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     tourCard.hidden = false;
   };
 
-  // Visible feedback: without this, the card and its stage progress can sit
-  // below the fold and the run looks like nothing happened.
-  const scrollTourCardIntoView = (): void => {
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    tourCard.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  // Fade the old stage copy out, swap it, fade the new copy in — a calm
+  // hand-off instead of an instant text swap.
+  const FADE_MS = 160;
+  const swapTourStep = async (step: DemoTourStep, index: number, total: number): Promise<void> => {
+    if (reduceMotion()) {
+      renderTourStep(step, index, total);
+      return;
+    }
+    tourContent.classList.add('is-swapping');
+    await wait(FADE_MS);
+    renderTourStep(step, index, total);
+    void tourContent.offsetHeight; // force layout so the fade-in transition runs
+    tourContent.classList.remove('is-swapping');
+    await wait(FADE_MS);
+  };
+
+  // One deliberate, unhurried scroll instead of the browser's native
+  // smooth-scroll (which snaps hard over long distances). Distance is kept
+  // short in the first place by applyStageFocus hiding everything that
+  // isn't this stage's subject.
+  const SCROLL_MS = 700;
+  const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  let lastScrollDistance = 0;
+  const scrollSubjectIntoView = (subject: HTMLElement): Promise<void> => {
+    const startY = window.scrollY;
+    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const targetY = Math.max(0, Math.min(maxY, startY + subject.getBoundingClientRect().top - 16));
+    lastScrollDistance = Math.abs(targetY - startY);
+    if (reduceMotion() || lastScrollDistance < 2) {
+      window.scrollTo(0, targetY);
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const delta = targetY - startY;
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / SCROLL_MS);
+        window.scrollTo(0, startY + delta * easeInOutCubic(t));
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+  };
+
+  let highlightedSubject: HTMLElement | null = null;
+  const setHighlightedSubject = (subject: HTMLElement | null): void => {
+    highlightedSubject?.classList.remove('tour-highlight');
+    highlightedSubject = subject;
+    highlightedSubject?.classList.add('tour-highlight');
+  };
+
+  // Reserve viewport space under the fixed dock so it never covers the
+  // content it is currently narrating.
+  const updateTourDockSpacing = (): void => {
+    if (tourCard.hidden) {
+      shell.style.paddingBottom = '';
+      return;
+    }
+    // The reserve must be at least a full viewport tall: a subject near the
+    // natural end of the page (e.g. the destination panel) cannot be
+    // scrolled flush to the viewport's top unless the document has that
+    // much extra scrollable room below it — the dock's own height alone
+    // isn't enough once the subject is close to the bottom of the page.
+    const reserve = Math.max(tourCard.getBoundingClientRect().height + 32, window.innerHeight);
+    shell.style.paddingBottom = `${reserve}px`;
+  };
+  window.addEventListener('resize', () => {
+    if (!tourCard.hidden) updateTourDockSpacing();
+  });
+
+  // Keep consecutive stages physically close together: hide every section
+  // that isn't this stage's subject instead of leaving a 4000px page for
+  // the visitor to be flown across.
+  const applyStageFocus = (step: DemoTourStep): void => {
+    controls.hidden = step.stage !== 'load';
+    Array.from(reviewRoot.querySelectorAll<HTMLElement>('.account-panel')).forEach((panel, index) => {
+      if (step.stage === 'review') {
+        panel.hidden = false;
+      } else if (step.stage === 'packet') {
+        panel.hidden = index !== 0;
+      } else if (step.stage === 'fill') {
+        panel.hidden = !panel.querySelector('h3')?.textContent?.startsWith(step.fillAccountNumber ?? '\0');
+      } else {
+        panel.hidden = true;
+      }
+    });
   };
 
   const destinationRoot = document.createElement('section');
@@ -414,6 +502,30 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     demoPanel?.reset();
     packetsByAccount.clear();
     tourCard.hidden = true;
+    setHighlightedSubject(null);
+    updateTourDockSpacing();
+    landingCopy.hidden = false;
+    controls.hidden = false;
+    shell.classList.remove('tour-active');
+    reviewRoot.querySelectorAll<HTMLElement>('.account-panel').forEach((panel) => {
+      panel.hidden = false;
+    });
+  };
+
+  // Which DOM node a tour step is narrating — scrolled into view and
+  // highlighted on every stage advance so the copy always has its subject
+  // on screen next to the dock.
+  const getStageSubject = (step: DemoTourStep): HTMLElement => {
+    switch (step.stage) {
+      case 'load':
+        return actionCard;
+      case 'review':
+        return reviewRoot;
+      case 'packet':
+        return reviewRoot.querySelector<HTMLElement>('.transfer-rail') ?? reviewRoot;
+      case 'fill':
+        return demoPanel?.root.querySelector<HTMLElement>('.demo-dest-table-wrap') ?? destinationRoot;
+    }
   };
 
   const runFillIntoPanel = async (packet: EmoneyFillPacket): Promise<void> => {
@@ -516,6 +628,11 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           };
         });
       const steps = buildDemoTourSteps(tourAccounts);
+      // The guided tour is now the page: fold the pre-run marketing hero away
+      // so the walkthrough isn't mostly landing copy while it runs, and keep
+      // consecutive stages physically close together (applyStageFocus).
+      landingCopy.hidden = true;
+      shell.classList.add('tour-active');
 
       // Single writer for the remaining stages: the visitor advances one
       // step at a time via Next (see advanceTour) — nothing after this may
@@ -523,21 +640,39 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       const advanceTour = async (): Promise<void> => {
         tourIndex += 1;
         if (tourIndex >= steps.length) {
+          // Tour finished ("Done"): restore full free browsing — nothing
+          // stays collapsed just because the guided walkthrough is over.
           tourCard.hidden = true;
+          setHighlightedSubject(null);
+          updateTourDockSpacing();
+          shell.classList.remove('tour-active');
+          controls.hidden = false;
+          reviewRoot.querySelectorAll<HTMLElement>('.account-panel').forEach((panel) => {
+            panel.hidden = false;
+          });
           return;
         }
         const step = steps[tourIndex];
+        tourNextButton.disabled = true;
         setWorkflowStep(step.stage);
         if (step.fillAccountNumber) {
           destinationRoot.hidden = false;
           if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
-          tourNextButton.disabled = true;
           setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
+          // The action this step narrates must fully finish before anything
+          // below shows or claims it happened.
           await runFillIntoPanel(packetsByAccount.get(step.fillAccountNumber)!);
-          tourNextButton.disabled = false;
         }
-        renderTourStep(step, tourIndex, steps.length);
-        scrollTourCardIntoView();
+        // One movement at a time: focus the layout on this stage's subject,
+        // settle a single deliberate scroll, THEN highlight, THEN swap the
+        // dock's "what just happened" copy — never simultaneously.
+        applyStageFocus(step);
+        updateTourDockSpacing();
+        const subject = getStageSubject(step);
+        await scrollSubjectIntoView(subject);
+        setHighlightedSubject(subject);
+        await swapTourStep(step, tourIndex, steps.length);
+        tourNextButton.disabled = false;
         if (step.stage === 'review') {
           setStatus(status, 'Demo sample is ready for review.', 'success');
         } else if (step.stage === 'packet') {

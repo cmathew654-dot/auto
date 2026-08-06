@@ -199,19 +199,31 @@ test('ledger-styles.ts styles the tour card and carries no eMoney trade dress', 
   assert.doesNotMatch(stylesSource, /emoney/i);
 });
 
-test('the tour card scrolls into view on every stage advance and stays sticky above the fold', () => {
+test('the tour dock stays fixed on screen and scrolls each stage\'s subject into view', () => {
   const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
-  assert.match(mainSource, /scrollTourCardIntoView/, 'a scroll-into-view helper must exist for the tour card');
+  assert.match(mainSource, /scrollSubjectIntoView/, 'a scroll-into-view helper must exist for the tour subject');
   assert.match(mainSource, /prefers-reduced-motion/, 'scroll behavior must respect prefers-reduced-motion');
+  assert.match(mainSource, /getStageSubject/, 'each stage must resolve the DOM node it is narrating');
+  assert.match(mainSource, /setHighlightedSubject/, 'the active subject must be visibly highlighted');
 
   const advanceStart = mainSource.indexOf('const advanceTour = async');
   const advanceEnd = mainSource.indexOf('\n      };', advanceStart);
   const advanceBody = mainSource.slice(advanceStart, advanceEnd);
-  assert.match(advanceBody, /scrollTourCardIntoView\(\)/, 'every stage advance must call the scroll-into-view helper');
+  assert.match(advanceBody, /await scrollSubjectIntoView\(subject\)/, 'every stage advance must settle its scroll before anything else moves');
+  assert.match(advanceBody, /await runFillIntoPanel[\s\S]*applyStageFocus[\s\S]*await scrollSubjectIntoView[\s\S]*setHighlightedSubject[\s\S]*await swapTourStep/, 'one thing moves at a time: fill completes, then layout focuses, then scroll settles, then highlight, then the dock copy swaps — in that order, never simultaneously');
 
   const stylesSource = fs.readFileSync(path.join(__dirname, 'ledger-styles.ts'), 'utf8');
   const cardStart = stylesSource.indexOf('.ledger-tour-card {');
   const cardEnd = stylesSource.indexOf('}', cardStart);
   const cardRule = stylesSource.slice(cardStart, cardEnd);
-  assert.match(cardRule, /position:\s*sticky/, 'the tour card must stay visible (sticky) as the panel below it fills');
+  assert.match(cardRule, /position:\s*fixed/, 'the tour dock must stay pinned to the viewport, not scroll away with the page');
+  assert.match(cardRule, /bottom:\s*0/, 'the tour dock must be pinned to the bottom edge of the viewport');
+});
+
+test('the fill stage scrolls to the filled results, not an empty entry form', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
+  const subjectStart = mainSource.indexOf('const getStageSubject');
+  const subjectEnd = mainSource.indexOf('\n  };', subjectStart);
+  const subjectBody = mainSource.slice(subjectStart, subjectEnd);
+  assert.match(subjectBody, /demo-dest-table-wrap/, 'the fill stage subject must be the filled rows table, not the blank add-a-holding form');
 });

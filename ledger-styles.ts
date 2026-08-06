@@ -329,14 +329,77 @@ export function installRegulatedLedgerStyles(): void {
       padding: var(--s-6);
       background: var(--surface);
       border: 1px solid var(--accent-line);
-      border-radius: var(--r-lg);
-      box-shadow: var(--shadow-lift);
-      position: sticky;
-      top: var(--s-4);
-      z-index: 20;
+      border-top-width: 2px;
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      box-shadow: 0 -10px 28px rgba(20, 28, 40, 0.14), var(--shadow-lift);
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      width: min(1280px, calc(100vw - 32px));
+      margin: 0;
+      z-index: 50;
     }
 
     .ledger-tour-card[hidden] { display: none; }
+
+    @media (max-width: 640px) {
+      .ledger-tour-card {
+        padding: var(--s-3);
+        gap: var(--s-1);
+        width: 100vw;
+        left: 0;
+        transform: none;
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+      }
+      .ledger-tour-counter { font-size: 9px; }
+      .ledger-tour-card h2 { font-size: 15px; }
+      .ledger-tour-content > p:not(.ledger-tour-proof) {
+        font-size: 12.5px;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .ledger-tour-proof { display: none; }
+      .ledger-tour-card .ledger-button {
+        width: 100%;
+        justify-self: stretch;
+        margin-top: var(--s-1);
+        font-size: 13px;
+        padding: var(--s-2);
+      }
+    }
+
+    /* ── Tour subject highlight ──────────────────────────────────────── */
+
+    .tour-highlight {
+      outline: 3px solid var(--accent-line);
+      outline-offset: 6px;
+      border-radius: var(--r-lg);
+      position: relative;
+      z-index: 10;
+      transition: outline-color var(--motion);
+    }
+
+    .ledger-tour-content {
+      display: grid;
+      gap: var(--s-2);
+      opacity: 1;
+      transition: opacity 160ms var(--ease);
+    }
+
+    .ledger-tour-content.is-swapping { opacity: 0; }
+
+    /* Keep consecutive tour stages physically close together: this chrome
+       is not part of the guided narrative and just adds scroll distance. */
+    .ledger-shell.tour-active .rail-card.bookmark-installer,
+    .ledger-shell.tour-active .rail-card.operator-guidance {
+      display: none;
+    }
 
     .ledger-tour-counter {
       margin: 0;
@@ -357,7 +420,7 @@ export function installRegulatedLedgerStyles(): void {
       color: var(--ink);
     }
 
-    .ledger-tour-card > p {
+    .ledger-tour-content > p {
       margin: 0;
       max-width: 68ch;
       color: var(--ink-muted);
