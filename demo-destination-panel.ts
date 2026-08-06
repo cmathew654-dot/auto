@@ -140,6 +140,17 @@ function installDemoDestinationStyles(): void {
       border-bottom: 1px solid #e4e4e8;
     }
 
+    /* Each landed row fades and slides in so a fill visibly populates the
+       table row by row, instead of appearing already-finished. */
+    .demo-dest-table tbody tr {
+      animation: demoDestRowIn 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes demoDestRowIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     .demo-dest-empty {
       margin: 8px 0 0;
       font-size: 12.5px;
