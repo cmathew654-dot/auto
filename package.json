@@ -2,8 +2,8 @@
   "name": "holdings-entry-assistant",
   "private": true,
   "scripts": {
-    "test": "tsc -p tsconfig.test.json && node --test holdings-csv-parser.test.cjs review-export-surface.test.cjs paste-conductor.test.cjs emoney-browser-helper.test.cjs session-privacy.test.cjs portfolio-public.test.cjs demo-sample.test.cjs",
-    "typecheck": "tsc --noEmit --lib es2019,dom holdings-schema.ts holdings-csv-parser.ts paste-conductor.ts ledger-styles.ts review-export-surface.ts emoney-browser-helper.ts main.ts",
+    "test": "tsc -p tsconfig.test.json && node --test holdings-csv-parser.test.cjs review-export-surface.test.cjs paste-conductor.test.cjs emoney-browser-helper.test.cjs session-privacy.test.cjs portfolio-public.test.cjs demo-sample.test.cjs demo-destination-panel.test.cjs",
+    "typecheck": "tsc --noEmit --lib es2019,dom holdings-schema.ts holdings-csv-parser.ts paste-conductor.ts ledger-styles.ts review-export-surface.ts emoney-browser-helper.ts main.ts demo-destination-panel.ts",
     "build:demo": "node scripts/build-demo.mjs",
     "build:portable": "node scripts/build-portable.mjs",
     "test:portable": "node scripts/test-portable.mjs",
