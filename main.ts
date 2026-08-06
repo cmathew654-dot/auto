@@ -16,7 +16,12 @@
 import { parseHoldingsCsvToIngestionFile } from './holdings-csv-parser';
 import type { HoldingsIngestionFile } from './holdings-schema';
 import { installRegulatedLedgerStyles } from './ledger-styles';
-import { clearMatchingClipboard, renderReviewExportSurface } from './review-export-surface';
+import {
+  clearMatchingClipboard,
+  getAccountRowDisplay,
+  getHoldingEligibility,
+  renderReviewExportSurface,
+} from './review-export-surface';
 import { DEMO_SAMPLE_CSV } from './demo-sample';
 import { renderDemoDestinationPanel } from './demo-destination-panel';
 import { runDemoFill, type EmoneyFillPacket } from './paste-conductor';
@@ -46,10 +51,23 @@ export interface DemoTourStep {
   workSteps: string[];      // named, real pipeline steps ticked through before the payoff
 }
 
+// Real, derived tallies for the review stage's typed work lines -- computed
+// from actual verdict results (getHoldingEligibility), never hardcoded.
+export interface DemoTourReviewTally {
+  missingLookupKey: number;
+  cash: number;
+  zeroPrice: number;
+}
+
 // Pure step model for the click-through guided tour. No DOM, no timers, no
 // module state — 01-09 wires this list to Next-button clicks on the page.
-export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] {
+export function buildDemoTourSteps(
+  accounts: DemoTourAccount[],
+  reviewTally?: DemoTourReviewTally
+): DemoTourStep[] {
   const totalRows = accounts.reduce((sum, a) => sum + a.totalRows, 0);
+  const totalEligible = accounts.reduce((sum, a) => sum + a.eligibleCount, 0);
+  const totalWithheld = accounts.reduce((sum, a) => sum + a.withheldCount, 0);
   const steps: DemoTourStep[] = [
     {
       id: 'load',
@@ -72,10 +90,10 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       proof: 'A human sees every verdict before anything is entered anywhere.',
       nextLabel: accounts.length === 0 ? 'Done' : 'Next: see what gets packaged',
       workSteps: [
-        'Checking every row for a ticker or CUSIP lookup key',
-        'Flagging cash rows for manual review',
-        'Checking for zero-price-with-value exceptions',
-        'Assigning a pass or hold verdict to every row',
+        `Checking every row for a ticker or CUSIP lookup key${reviewTally ? ` — ${reviewTally.missingLookupKey} missing` : ''}`,
+        `Flagging cash rows for manual review${reviewTally ? ` — ${reviewTally.cash} found` : ''}`,
+        `Checking for zero-price-with-value exceptions${reviewTally ? ` — ${reviewTally.zeroPrice} found` : ''}`,
+        `Assigning a pass or hold verdict to every row — ${totalEligible} pass, ${totalWithheld} hold`,
       ],
     },
   ];
@@ -93,8 +111,8 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
     proof: 'Blocked rows physically cannot reach the destination page.',
     nextLabel: 'Next: fill the first account',
     workSteps: [
-      "Filtering out every row that didn't clear review",
-      'Bundling only approved rows into the fill packet',
+      `Filtering out every row that didn't clear review — ${totalWithheld} held`,
+      `Bundling only approved rows into the fill packet — ${totalEligible} row${totalEligible === 1 ? '' : 's'}`,
     ],
   });
 
@@ -123,7 +141,7 @@ export function buildDemoTourSteps(accounts: DemoTourAccount[]): DemoTourStep[] 
       steps.push({
         id: `holds-${account.accountNumber}`,
         stage: 'fill',
-        title: `First: the ${account.withheldCount} row(s) that don't go`,
+        title: `First: the ${account.withheldCount} row${account.withheldCount === 1 ? '' : 's'} that don't go`,
         body: `Account ${account.accountNumber} is holding back ${account.withheldCount} of ${account.totalRows} rows before anything reaches the destination page — some need a manual-review override, and some (like a cash row with no ticker or CUSIP) can never be auto-entered.`,
         proof: 'Every blocked row stays visible with its reason. Nothing here is hidden, only withheld.',
         nextLabel: 'Next: watch the rest land',
@@ -241,7 +259,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
   const badges = document.createElement('div');
   badges.className = 'ledger-safety-badges';
-  ['BROWSER PROCESSING', 'NO PROJECT SERVER', 'Manual Save in eMoney', 'SYNTHETIC DEMO DATA'].forEach((label) => {
+  ['BROWSER PROCESSING', 'NO PROJECT SERVER', 'Manual Save in eMoney', 'REAL SYMBOLS, FABRICATED ACCOUNTS'].forEach((label) => {
     const badge = document.createElement('span');
     badge.textContent = label;
     badges.appendChild(badge);
@@ -464,7 +482,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       return;
     }
 
-    for (const text of workSteps) {
+    for (let lineIndex = 0; lineIndex < workSteps.length; lineIndex += 1) {
+      const text = workSteps[lineIndex];
       const li = document.createElement('li');
       li.classList.add('is-active');
       const textSpan = document.createElement('span');
@@ -473,16 +492,22 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       cursor.className = 'ledger-tour-work-cursor';
       li.append(textSpan, cursor);
       tourWork.appendChild(li);
+      tourContent.scrollTop = tourContent.scrollHeight; // keep the newest line in view as it types
       for (let i = 1; i <= text.length; i += 1) {
         textSpan.textContent = text.slice(0, i);
+        tourContent.scrollTop = tourContent.scrollHeight;
         await wait(TYPE_CHAR_MS);
       }
       await wait(TYPE_LINE_PAUSE_MS);
       cursor.remove();
       li.classList.add('is-done');
-      await wait(TYPE_NEXT_LINE_GAP_MS);
+      // No gap after the LAST line -- that gap was dead air with nothing
+      // left to wait for (item 1: stage 1's post-typing pause).
+      if (lineIndex < workSteps.length - 1) {
+        await wait(TYPE_NEXT_LINE_GAP_MS);
+      }
     }
-    await wait(300);
+    await wait(120);
     tourWork.hidden = true;
     tourTitle.hidden = false;
     tourBody.hidden = false;
@@ -523,16 +548,16 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     return Math.max(0, Math.min(maxY, window.scrollY + delta));
   };
 
-  let lastScrollDistance = 0;
-  const scrollSubjectIntoView = (subject: HTMLElement): Promise<void> => {
+  // Shared window-scroll animator -- used both to bring a stage's subject
+  // into view and (Explore the full session) to return to the page top.
+  const animateScrollTo = (targetY: number): Promise<void> => {
     const startY = window.scrollY;
-    const targetY = scrollTargetForSubject(subject);
-    lastScrollDistance = Math.abs(targetY - startY);
-    if (reduceMotion() || lastScrollDistance < 2) {
+    const distance = Math.abs(targetY - startY);
+    if (reduceMotion() || distance < 2) {
       window.scrollTo(0, targetY);
       return Promise.resolve();
     }
-    const duration = lastScrollDistance > SCROLL_LONG_THRESHOLD_PX ? SCROLL_LONG_MS : SCROLL_MIN_MS;
+    const duration = distance > SCROLL_LONG_THRESHOLD_PX ? SCROLL_LONG_MS : SCROLL_MIN_MS;
     return new Promise((resolve) => {
       const delta = targetY - startY;
       const start = performance.now();
@@ -548,6 +573,9 @@ export function renderLocalMvpShell(root: HTMLElement): void {
       requestAnimationFrame(step);
     });
   };
+
+  const scrollSubjectIntoView = (subject: HTMLElement): Promise<void> =>
+    animateScrollTo(scrollTargetForSubject(subject));
 
   let highlightedSubject: HTMLElement | null = null;
   const setHighlightedSubject = (subject: HTMLElement | null): void => {
@@ -676,7 +704,11 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         // the highlight's edges stay on screen.
         return reviewRoot.querySelector<HTMLElement>('.holdings-table-wrap') ?? reviewRoot;
       case 'packet':
-        return reviewRoot.querySelector<HTMLElement>('.transfer-rail') ?? reviewRoot;
+        // The whole rail (packet card + bookmarklet card + fallback) is
+        // taller than the thing being narrated; ring just the Transfer
+        // Packet card itself so the camera frames the packet, not
+        // whatever else happens to share its column.
+        return reviewRoot.querySelector<HTMLElement>('.transfer-card') ?? reviewRoot;
       case 'fill':
         if (step.holdsForAccount) {
           return (
@@ -793,7 +825,16 @@ export function renderLocalMvpShell(root: HTMLElement): void {
             withheldCount: packet.blockedCount,
           };
         });
-      const steps = buildDemoTourSteps(tourAccounts);
+      // Real, derived counts for the review stage's typed lines -- never
+      // hardcoded (item 2).
+      const allHoldings = ingestion.accounts.flatMap((account) => account.holdings);
+      const eligibilities = allHoldings.map((holding) => getHoldingEligibility(holding));
+      const reviewTally: DemoTourReviewTally = {
+        missingLookupKey: eligibilities.filter((e) => e.blockedIssueCodes.includes('MISSING_LOOKUP_KEY')).length,
+        cash: eligibilities.filter((e) => e.blockedIssueCodes.includes('CASH_SPECIAL_HANDLING')).length,
+        zeroPrice: eligibilities.filter((e) => e.blockedIssueCodes.includes('ZERO_PRICE_NONZERO_VALUE_EXCEPTION')).length,
+      };
+      const steps = buildDemoTourSteps(tourAccounts, reviewTally);
       // The guided tour is now the page: fold the pre-run marketing hero away
       // so the walkthrough isn't mostly landing copy while it runs, and keep
       // consecutive stages physically close together (applyStageFocus).
@@ -851,9 +892,31 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           `${totalRows} row(s) processed across ${tourAccounts.length} account(s)`,
           `${totalEligible} row(s) landed on the destination panel`,
           `${totalWithheld} row(s) held back for manual review or a missing lookup key`,
-          'Browser-only processing -- no project server, no auto-save',
-          'Real market symbols, fabricated accounts and positions -- Save is always a manual operator click',
         ];
+        // Per-account breakdown, typed into the same transcript -- real
+        // counts and reasons, derived from the actual verdict results for
+        // every held row (item 5).
+        ingestion.accounts
+          .filter((account) => packetsByAccount.has(account.accountNumber))
+          .forEach((account) => {
+            const packet = packetsByAccount.get(account.accountNumber)!;
+            closingLines.push(
+              `Account ${account.accountNumber}: ${account.holdings.length} row(s) processed, ${packet.rowCount} landed, ${packet.blockedCount} held`
+            );
+            if (packet.blockedCount > 0) {
+              getAccountRowDisplay(account, { allowManualOverride: false })
+                .filter((row) => !row.eligible)
+                .forEach((row) => {
+                  const label = (row.holding.ticker ?? row.holding.cusip ?? '').trim() || 'no ticker/CUSIP';
+                  const reason = row.blockedWhy.replace(/^blocked: |^manual review required before export: /, '');
+                  closingLines.push(`Held in ${account.accountNumber}: ${label} — ${reason}`);
+                });
+            }
+          });
+        closingLines.push(
+          'Browser-only processing -- no project server, no auto-save',
+          'Real market symbols, fabricated accounts and positions -- Save is always a manual operator click'
+        );
 
         const renderClosingCopy = (): void => {
           tourCounter.textContent = 'Session complete';
@@ -877,7 +940,21 @@ export function renderLocalMvpShell(root: HTMLElement): void {
 
         tourRunAgainButton.hidden = false;
         tourNextButton.disabled = false;
+        // First click: scroll to the top so the report's "explore" promise
+        // actually delivers somewhere, keep the dock (and its report) up,
+        // and relabel to a dismiss affordance. Second click: close it.
+        let sessionReportOpen = false;
         tourNext = () => {
+          if (!sessionReportOpen) {
+            sessionReportOpen = true;
+            tourNextButton.disabled = true;
+            tourNextButton.textContent = 'Close the report';
+            void animateScrollTo(0).then(() => {
+              updateTourDockSpacing(true);
+              tourNextButton.disabled = false;
+            });
+            return;
+          }
           tourCard.hidden = true;
           tourRunAgainButton.hidden = true;
           setHighlightedSubject(null);
@@ -917,6 +994,14 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           demoPanel.reset();
           if (isFirstPanelReveal) destinationRoot.classList.add('is-pre-reveal');
         }
+        // The packet stage occurs exactly once per run; give its subject
+        // the same pre-reveal treatment as the destination panel's first
+        // appearance, so it arrives with the camera instead of booming in
+        // already-visible the instant the scroll settles.
+        const isPacketStage = step.stage === 'packet';
+        if (isPacketStage) {
+          reviewRoot.querySelector<HTMLElement>('.transfer-card')?.classList.add('is-pre-reveal');
+        }
         // One movement at a time: focus the layout on this stage's subject,
         // settle a single deliberate scroll, THEN highlight, THEN swap the
         // dock's "what just happened" copy — never simultaneously.
@@ -940,6 +1025,11 @@ export function renderLocalMvpShell(root: HTMLElement): void {
           await wait(reduceMotion() ? 0 : 750);
           panelRevealed = true;
         }
+        if (isPacketStage) {
+          void subject.offsetHeight; // force the pre-reveal state to paint before it's removed
+          subject.classList.remove('is-pre-reveal');
+          await wait(reduceMotion() ? 0 : 750);
+        }
 
         await runWorkingSequence(step.workSteps);
 
@@ -959,7 +1049,11 @@ export function renderLocalMvpShell(root: HTMLElement): void {
         // re-frames it, but only if that actually happened.
         {
           const dockTopFinal = tourCard.hidden ? window.innerHeight : tourCard.getBoundingClientRect().top;
-          if (subject.getBoundingClientRect().bottom > dockTopFinal - 16) {
+          const overlap = subject.getBoundingClientRect().bottom - (dockTopFinal - 16);
+          // Small overlaps aren't worth a second, visible camera move (that
+          // second move is what read as zoom/drift on stage 5) -- only
+          // re-settle when the dock would meaningfully cover the subject.
+          if (overlap > 40) {
             await scrollSubjectIntoView(subject);
             updateTourDockSpacing(true);
           }

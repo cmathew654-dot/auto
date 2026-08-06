@@ -383,16 +383,23 @@ export function installRegulatedLedgerStyles(): void {
       outline: 3px solid var(--accent);
       outline-offset: 6px;
       box-shadow: 0 0 0 10px var(--accent-soft);
-      border-radius: var(--r-lg);
+      border-radius: 0;
       position: relative;
       z-index: 10;
       transition: outline-color var(--motion), box-shadow var(--motion);
     }
 
+    /* Internal scroll on desktop too (not just the mobile clamp): a long
+       transcript -- especially the closing session report -- must stay
+       readable without the fixed dock swallowing the viewport. The Next /
+       Run it again / dismiss buttons live outside this element (siblings
+       on .ledger-tour-card), so they always stay reachable. */
     .ledger-tour-content {
       display: grid;
       gap: var(--s-2);
       opacity: 1;
+      max-height: 42vh;
+      overflow-y: auto;
       transition: opacity 160ms var(--ease);
     }
 
@@ -527,13 +534,17 @@ export function installRegulatedLedgerStyles(): void {
     /* Destination panel's own slow entrance, played once the first time it
        appears -- opacity/transform only, so it never affects the layout
        used to compute the scroll target. */
-    #demo-destination-root {
+    /* .transfer-card (the packet stage's subject) reuses this exact
+       treatment -- same duration/easing, not a second animation. */
+    #demo-destination-root,
+    .transfer-card {
       opacity: 1;
       transform: none;
       transition: opacity 750ms var(--ease), transform 750ms var(--ease);
     }
 
-    #demo-destination-root.is-pre-reveal {
+    #demo-destination-root.is-pre-reveal,
+    .transfer-card.is-pre-reveal {
       opacity: 0;
       transform: translateY(24px);
     }

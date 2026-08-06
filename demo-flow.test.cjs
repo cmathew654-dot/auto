@@ -167,7 +167,7 @@ test('tour copy stays in plain language, no raw issue codes leak to the visitor'
 test('the safety model is legible on the page', () => {
   const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
 
-  assert.match(mainSource, /SYNTHETIC DEMO DATA/);
+  assert.match(mainSource, /FABRICATED ACCOUNTS/);
   assert.match(mainSource, /NO PROJECT SERVER/);
   assert.match(mainSource, /BROWSER PROCESSING/);
   assert.match(mainSource, /manual operator click|Save.*manual/i);
@@ -175,7 +175,7 @@ test('the safety model is legible on the page', () => {
 
 test('the guided tour is Next-driven, not timer-driven', () => {
   const mainSource = fs.readFileSync(path.join(__dirname, 'main.ts'), 'utf8');
-  const tourStart = mainSource.indexOf('buildDemoTourSteps(tourAccounts)');
+  const tourStart = mainSource.indexOf('buildDemoTourSteps(tourAccounts');
   assert.ok(tourStart >= 0, 'sampleButton.onclick must build the tour from buildDemoTourSteps');
   const handlerEnd = mainSource.indexOf('\n  };', tourStart);
   const tourSection = mainSource.slice(tourStart, handlerEnd);
