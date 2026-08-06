@@ -138,6 +138,84 @@ export function serializeEmoneyFillPacket(packet: EmoneyFillPacket): string {
   return JSON.stringify(packet, null, 2);
 }
 
+export interface DemoFillProgress {
+  rowNumber: number;
+  ticker: string;
+}
+
+function normalizeDemoFillText(value: string | null | undefined): string {
+  return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+export function findFieldByLabel(root: ParentNode, labelText: string): HTMLInputElement | null {
+  const target = normalizeDemoFillText(labelText);
+  const labels = Array.from(root.querySelectorAll('label'));
+  const match = labels.find((label) => normalizeDemoFillText(label.textContent) === target);
+  if (!match) return null;
+
+  const forId = match.getAttribute('for');
+  if (forId) {
+    const ownerDoc = match.ownerDocument;
+    const byId = ownerDoc?.getElementById(forId) ?? root.querySelector(`#${CSS.escape(forId)}`);
+    if (byId instanceof HTMLInputElement) return byId;
+  }
+
+  const nested = match.querySelector('input');
+  return nested instanceof HTMLInputElement ? nested : null;
+}
+
+function fireDemoFillEvents(el: HTMLInputElement): void {
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setDemoFillValue(el: HTMLInputElement, value: string): void {
+  el.value = value;
+  fireDemoFillEvents(el);
+}
+
+function findButtonByText(root: ParentNode, buttonText: string): HTMLElement | null {
+  const target = normalizeDemoFillText(buttonText);
+  const candidates = Array.from(root.querySelectorAll('button'));
+  return candidates.find((btn) => normalizeDemoFillText(btn.textContent) === target) ?? null;
+}
+
+const sleepDemoFill = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function runDemoFill(
+  root: HTMLElement,
+  packet: EmoneyFillPacket,
+  opts?: { onRow?: (p: DemoFillProgress) => void; stepDelayMs?: number }
+): Promise<{ filledCount: number }> {
+  const stepDelayMs = opts?.stepDelayMs ?? 250;
+  let filledCount = 0;
+
+  for (const holding of packet.holdings) {
+    const fieldValues: Array<[string, string]> = [
+      ['Ticker', holding.ticker],
+      ['CUSIP', holding.cusip],
+      ['Units', holding.units],
+      ['Cost Basis', holding.costBasis],
+    ];
+
+    for (const [label, value] of fieldValues) {
+      const field = findFieldByLabel(root, label);
+      if (!field) throw new Error(`Could not find field labeled "${label}" in the demo destination panel.`);
+      setDemoFillValue(field, value);
+    }
+
+    const addButton = findButtonByText(root, 'Add a Holding');
+    if (!addButton) throw new Error('Could not find the Add a Holding button in the demo destination panel.');
+    addButton.click();
+
+    filledCount += 1;
+    opts?.onRow?.({ rowNumber: holding.rowNumber, ticker: holding.ticker });
+    await sleepDemoFill(stepDelayMs);
+  }
+
+  return { filledCount };
+}
+
 export function isApprovedEmoneyLocation(protocol: string, hostname: string): boolean {
   const normalizedProtocol = protocol.trim().toLowerCase();
   const normalizedHost = hostname.trim().toLowerCase();
