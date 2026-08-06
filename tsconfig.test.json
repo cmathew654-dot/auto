@@ -19,6 +19,7 @@
     "review-export-surface.ts",
     "paste-conductor.ts",
     "emoney-browser-helper.ts",
-    "demo-sample.ts"
+    "demo-sample.ts",
+    "demo-destination-panel.ts"
   ]
 }
