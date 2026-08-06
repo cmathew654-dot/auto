@@ -25,13 +25,6 @@ export const SAMPLE_CSV_INPUT = DEMO_SAMPLE_CSV;
 
 export type WorkflowStep = 'load' | 'review' | 'packet' | 'fill';
 
-// Single source of truth for the stage order a demo run walks through, so the
-// async handler has exactly one writer driving the stepper (no code after it
-// races to overwrite the stage — see demo-flow.test.cjs for the regression this pins).
-export function demoRunStepOrder(hasEligiblePacket: boolean): WorkflowStep[] {
-  return hasEligiblePacket ? ['review', 'packet', 'fill'] : ['review'];
-}
-
 export interface DemoTourAccount {
   accountNumber: string;
   totalRows: number;
@@ -340,6 +333,32 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   reviewRoot.id = 'review-root';
   shell.appendChild(reviewRoot);
 
+  const tourCard = document.createElement('section');
+  tourCard.className = 'ledger-tour-card';
+  tourCard.hidden = true;
+  tourCard.setAttribute('role', 'region');
+  tourCard.setAttribute('aria-live', 'polite');
+  const tourCounter = document.createElement('p');
+  tourCounter.className = 'ledger-tour-counter';
+  const tourTitle = document.createElement('h2');
+  const tourBody = document.createElement('p');
+  const tourProof = document.createElement('p');
+  tourProof.className = 'ledger-tour-proof';
+  const tourNextButton = document.createElement('button');
+  tourNextButton.type = 'button';
+  tourNextButton.className = 'ledger-button';
+  tourCard.append(tourCounter, tourTitle, tourBody, tourProof, tourNextButton);
+  shell.appendChild(tourCard);
+
+  const renderTourStep = (step: DemoTourStep, index: number, total: number): void => {
+    tourCounter.textContent = `Stage ${index + 1} of ${total}`;
+    tourTitle.textContent = step.title;
+    tourBody.textContent = step.body;
+    tourProof.textContent = step.proof;
+    tourNextButton.textContent = step.nextLabel;
+    tourCard.hidden = false;
+  };
+
   const destinationRoot = document.createElement('section');
   destinationRoot.id = 'demo-destination-root';
   destinationRoot.className = 'ledger-panel';
@@ -374,6 +393,7 @@ export function renderLocalMvpShell(root: HTMLElement): void {
   let lastCopiedText: string | null = null;
   let latestPacket: EmoneyFillPacket | null = null;
   let demoPanel: ReturnType<typeof renderDemoDestinationPanel> | null = null;
+  const packetsByAccount = new Map<string, EmoneyFillPacket>();
 
   const trackClipboardWrite = (text: string) => {
     lastCopiedText = text;
@@ -385,6 +405,8 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     fillButton.disabled = true;
     withheldLine.textContent = '';
     demoPanel?.reset();
+    packetsByAccount.clear();
+    tourCard.hidden = true;
   };
 
   const runFillIntoPanel = async (packet: EmoneyFillPacket): Promise<void> => {
@@ -449,49 +471,76 @@ export function renderLocalMvpShell(root: HTMLElement): void {
     }
   };
 
+  let tourIndex = -1;
+  let tourNext: () => void = () => {};
+  tourNextButton.onclick = () => tourNext();
+
   sampleButton.onclick = async () => {
     try {
       hideDestinationPanel();
+      tourIndex = -1;
       setWorkflowStep('load');
       renderLedgerSkeleton(reviewRoot, 'demo-sample.csv');
       await stageLoadStatus(status, 'demo-sample.csv');
-      let preparedPacket: EmoneyFillPacket | null = null;
       const ingestion = runLocalMvp(reviewRoot, SAMPLE_CSV_INPUT, {
         sourceFilename: 'demo-sample.csv',
         onPacketPrepared: (event) => setWorkflowStep(event.copied ? 'fill' : 'packet'),
         onClipboardWrite: trackClipboardWrite,
         onFillPacketReady: (packet) => {
-          preparedPacket = packet;
           latestPacket = packet;
           fillButton.disabled = !packet;
           if (packet) {
+            packetsByAccount.set(packet.accountNumber, packet);
             withheldLine.textContent = `Withheld from the destination page: ${packet.blockedCount} row(s) that failed review.`;
           }
         },
       });
       markSessionActive(ingestion);
 
-      // Single writer for the remaining stages: walk demoRunStepOrder in
-      // order, with pacing, so the visitor watches each stage land instead
-      // of everything landing in one tick (and nothing after this loop may
-      // touch setWorkflowStep for this run).
-      for (const step of demoRunStepOrder(!!preparedPacket)) {
-        setWorkflowStep(step);
-        if (step === 'review') {
-          setStatus(status, 'Demo sample is ready for review.', 'success');
-        } else if (step === 'packet') {
-          setStatus(status, 'Preparing the eMoney Fill Packet from eligible rows...');
-        } else if (step === 'fill') {
-          setStatus(status, 'Opening the simulated destination panel...');
+      const tourAccounts: DemoTourAccount[] = ingestion.accounts
+        .filter((account) => packetsByAccount.has(account.accountNumber))
+        .map((account) => {
+          const packet = packetsByAccount.get(account.accountNumber)!;
+          return {
+            accountNumber: account.accountNumber,
+            totalRows: account.holdings.length,
+            eligibleCount: packet.rowCount,
+            withheldCount: packet.blockedCount,
+          };
+        });
+      const steps = buildDemoTourSteps(tourAccounts);
+
+      // Single writer for the remaining stages: the visitor advances one
+      // step at a time via Next (see advanceTour) — nothing after this may
+      // touch setWorkflowStep for this run.
+      const advanceTour = async (): Promise<void> => {
+        tourIndex += 1;
+        if (tourIndex >= steps.length) {
+          tourCard.hidden = true;
+          return;
+        }
+        const step = steps[tourIndex];
+        setWorkflowStep(step.stage);
+        if (step.fillAccountNumber) {
           destinationRoot.hidden = false;
           if (!demoPanel) demoPanel = renderDemoDestinationPanel(destinationPanelHost);
-          else demoPanel.reset();
+          destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          tourNextButton.disabled = true;
+          setStatus(status, `Filling account ${step.fillAccountNumber} into the simulated destination page...`);
+          await runFillIntoPanel(packetsByAccount.get(step.fillAccountNumber)!);
+          tourNextButton.disabled = false;
         }
-        await delay(400);
-      }
-      if (preparedPacket) {
-        destinationRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+        renderTourStep(step, tourIndex, steps.length);
+        if (step.stage === 'review') {
+          setStatus(status, 'Demo sample is ready for review.', 'success');
+        } else if (step.stage === 'packet') {
+          setStatus(status, 'Preparing the eMoney Fill Packet from eligible rows...');
+        } else if (step.stage === 'fill') {
+          setStatus(status, `Account ${step.fillAccountNumber} filled into the simulated destination page.`, 'success');
+        }
+      };
+      tourNext = () => void advanceTour();
+      await advanceTour();
     } catch (err) {
       console.error('Could not load the demo sample.');
       setStatus(status, `Could not load demo sample: ${err instanceof Error ? err.message : String(err)}`, 'error');
