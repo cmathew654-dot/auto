@@ -4,7 +4,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-plain_DOM-2D3748?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6C757D?style=flat-square)](LICENSE)
 
-<!-- walkthrough-gif -->
+![Walkthrough: CSV parse, per-row verdicts, and auto-fill of the simulated destination page](docs/media/walkthrough.gif)
 
 A browser-based helper for reviewing holdings CSVs and preparing repetitive holdings entry in eMoney. It came out of a simple question: where was planner time disappearing during plan setup, and which part of that work was mechanical enough to make easier?
 
