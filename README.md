@@ -1,5 +1,11 @@
 # Holdings Entry Assistant
 
+[![Live demo](https://img.shields.io/badge/live_demo-synthetic_data-0B7285?style=flat-square)](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-plain_DOM-2D3748?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-6C757D?style=flat-square)](LICENSE)
+
+<!-- walkthrough-gif -->
+
 A browser-based helper for reviewing holdings CSVs and preparing repetitive holdings entry in eMoney. It came out of a simple question: where was planner time disappearing during plan setup, and which part of that work was mechanical enough to make easier?
 
 The demo uses synthetic data. It parses a CSV, shows which rows need attention, and prepares eligible rows for browser entry. The operator reviews the destination page and clicks Save in eMoney manually.
@@ -15,6 +21,18 @@ The demo uses synthetic data. It parses a CSV, shows which rows need attention, 
 5. Runs only when the operator clicks a bookmark on an eMoney Holdings page. Save remains manual.
 
 Ambiguous matches stop instead of guessing. Market value stays visible for comparison but is not written by the fill packet.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  CSV["Holdings CSV"] --> Parser["holdings-csv-parser.ts<br/>header detect + column map"]
+  Parser --> Schema["holdings-schema.ts<br/>group by account, flag rows"]
+  Schema --> Review["review-export-surface.ts<br/>every row shown, blocked rows excluded"]
+  Review --> Packet["paste-conductor.ts<br/>versioned fill packet to clipboard"]
+  Packet --> Helper["emoney-browser-helper.ts<br/>bookmark, runs on the eMoney page"]
+  Helper --> Save["Operator clicks Save in eMoney"]
+```
 
 ## Data boundary
 
