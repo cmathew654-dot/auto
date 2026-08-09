@@ -8,7 +8,9 @@
 
 I built this browser-local assistant to reduce a 1–2 hour holdings-entry task to 3–5 minutes. It flags ambiguous rows before preparing eligible entries for eMoney, where the user reviews each entry and clicks Save.
 
-[Try the synthetic demo](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/) · [See the reconstructed intake interview](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/how-it-started/) · [Read how it started](docs/how-it-started.md)
+[Try the synthetic demo](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/) or [read how the project started](docs/how-it-started.md).
+
+The [reconstructed intake interview](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/how-it-started/) shows the original requirements.
 
 ## What it does
 
@@ -34,9 +36,9 @@ flowchart LR
 
 ## Data boundary
 
-The current browser build does not send holdings data to a project server. A prepared packet is copied to the system clipboard when the operator asks for it, then read by the bookmark on the visible eMoney page.
+The current browser build does not send holdings data to a project server. When the operator asks for a prepared packet, the browser copies it to the system clipboard. The bookmark reads the packet on the visible eMoney page.
 
-“Clear session” removes the loaded data from the page. It clears the clipboard only when the clipboard still contains the last payload written by this session; anything copied later is preserved. Use only synthetic or otherwise authorized data.
+“Clear session” removes loaded data from the page. It clears the clipboard only if the clipboard still contains this session's last payload. If the operator copied something else afterward, the command leaves it alone. Use only synthetic or otherwise authorized data.
 
 See [DISCLAIMER.md](DISCLAIMER.md) for the project boundary and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
