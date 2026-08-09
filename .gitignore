@@ -4,6 +4,7 @@ dist/
 demo-dist/
 demo-dist-portable/
 *.log
+.planning/
 
 # Tauri desktop shell build output
 src-tauri/target/
