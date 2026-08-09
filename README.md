@@ -20,7 +20,7 @@ The [reconstructed intake interview](https://cmathew654-dot.github.io/emoney-hol
 4. Prepares ticker, units, and cost basis in a versioned fill packet.
 5. Runs only when the operator clicks a bookmark on an eMoney Holdings page. Save remains manual.
 
-Ambiguous matches stop instead of guessing. The operator can compare market value on screen; the fill packet omits that field.
+I designed the tool to stop on ambiguous matches instead of guessing. I exclude market value from the fill packet so the operator can compare it on screen.
 
 ## How it fits together
 
