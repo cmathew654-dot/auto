@@ -4,7 +4,14 @@ dist/
 demo-dist/
 demo-dist-portable/
 *.log
+.agents/
+.claude/
+.codex/
 .planning/
+.ship/
+.superpowers/
+docs/codex/
+docs/superpowers/
 
 # Tauri desktop shell build output
 src-tauri/target/

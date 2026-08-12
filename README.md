@@ -6,7 +6,7 @@
 
 ![Walkthrough: CSV parse, per-row verdicts, and auto-fill of the simulated destination page](docs/media/walkthrough.gif)
 
-I built this browser-local assistant to reduce a 1–2 hour holdings-entry task to 3–5 minutes. It flags ambiguous rows before preparing eligible entries for eMoney, where the user reviews each entry and clicks Save.
+This browser-local assistant reviews holdings CSVs, flags ambiguous rows, and prepares eligible entries for eMoney. The operator reviews each entry and clicks Save.
 
 [Try the synthetic demo](https://cmathew654-dot.github.io/emoney-holdings-entry-assistant/) or [read how the project started](docs/how-it-started.md).
 

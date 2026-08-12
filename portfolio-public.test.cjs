@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 
 test('public README uses the portfolio identity and bounded privacy language', () => {
@@ -14,12 +15,21 @@ test('public README uses the portfolio identity and bounded privacy language', (
     'production-ready',
     'enterprise-ready',
     'nothing leaves this machine',
+    '1[–-]2 hour',
+    '3[–-]5 minute',
   ];
 
   assert.match(readme, /^# Holdings Entry Assistant/m);
   assert.match(readme, /does not send holdings data to a project server/i);
   assert.match(readme, /Save.*manual/i);
   for (const phrase of forbidden) assert.doesNotMatch(readme, new RegExp(phrase, 'i'));
+});
+
+test('tracked public tree excludes internal agent artifacts', () => {
+  const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8' }).split(/\r?\n/);
+  const forbidden = /^(?:\.agents|\.claude|\.codex|\.planning|\.ship|\.superpowers|docs\/(?:codex|superpowers))(?:\/|$)/;
+
+  assert.deepEqual(tracked.filter((path) => forbidden.test(path)), []);
 });
 
 test('origin reconstruction is labeled honestly and the interview page has no submission endpoint', () => {
