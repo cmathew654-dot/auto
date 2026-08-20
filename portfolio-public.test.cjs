@@ -15,13 +15,13 @@ test('public README uses the portfolio identity and bounded privacy language', (
     'production-ready',
     'enterprise-ready',
     'nothing leaves this machine',
-    '1[–-]2 hour',
-    '3[–-]5 minute',
   ];
 
   assert.match(readme, /^# Holdings Entry Assistant/m);
   assert.match(readme, /does not send holdings data to a project server/i);
   assert.match(readme, /Save.*manual/i);
+  assert.match(readme, /In my workflow, this browser-local assistant reduced a recurring holdings-entry task from roughly 1[–-]2 hours to 3[–-]5 minutes/i);
+  assert.match(readme, /firsthand operational observation, not a controlled benchmark/i);
   for (const phrase of forbidden) assert.doesNotMatch(readme, new RegExp(phrase, 'i'));
 });
 
